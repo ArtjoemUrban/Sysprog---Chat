@@ -11,5 +11,6 @@ void *clientthread(void *arg)
 	//TODO: Receive messages and send them to all users, skip self
 
 	debugPrint("Client thread stopping.");
+	free(arg);
 	return NULL;
 }

@@ -80,8 +80,8 @@ int connectionHandler(in_port_t port)
 
 		//TODO: add connection to user list and start client thread
 		//pthread_t thread = clientthread(client_fd); 
-		pthread_t tid;
-		if ( pthread_create(&tid, NULL, clientthread, client_fd) != 0)
+		pthread_t tid;  
+		if ( pthread_create(&tid, NULL, clientthread, client_fd) != 0) // erzeugt thread
 		{
 			errnoPrint("Could not create Thread");
 			close(*client_fd);

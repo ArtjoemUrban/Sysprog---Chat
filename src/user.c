@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "user.h"
 #include "clientthread.h"
+#include "util.h"
 
 static pthread_mutex_t userLock = PTHREAD_MUTEX_INITIALIZER;
 static User *userFront = NULL;
@@ -12,58 +13,59 @@ static User *userBack = NULL;
 //TODO: Implement the functions declared in user.h
 User *add_user(int sock)
 {
-User *newUser = malloc(sizeof(User));
-if (!newUser) {
-perror("malloc failed");
-return NULL;
-}
-newUser->sock = sock;
-newUser->prev = NULL;
-newUser->next = NULL;
-
-pthread_mutex_lock(&userLock);
-if (!userFront) {
-    userFront = userBack = newUser;
-} else {
-    userBack->next = newUser;
-    newUser->prev = userBack;
-    userBack = newUser;
-}
-pthread_mutex_unlock(&userLock);
-
-if (pthread_create(&newUser->thread, NULL, clientthread, newUser) != 0) {
-    perror("pthread_create failed");
-    remove_user(newUser);
+    User *newUser = malloc(sizeof(User));
+    if (!newUser) {
+    errnoPrint("malloc failed for creating user");
     return NULL;
-}
+    }
+    newUser->sock = sock;
+    newUser->prev = NULL;
+    newUser->next = NULL;
 
-return newUser;
+    pthread_mutex_lock(&userLock); // blokiert die liste für andere Threads damit die liste nicht beschädigt wird
+    if (!userFront) {
+        userFront = userBack = newUser;
+    } else {
+        userBack->next = newUser;
+        newUser->prev = userBack;
+        userBack = newUser;
+    }
+    pthread_mutex_unlock(&userLock); // Gibt die liste wieder frei
 
+    if (pthread_create(&newUser->thread, NULL, clientthread, newUser) != 0) {
+        errnoPrint("failed to create user-thread");
+        remove_user(newUser);
+        return NULL;
+    }
+
+    infoPrint("Neuer Benutzer erstellt");
+    return newUser;
 }
 
 void remove_user(User *user)
 {
-pthread_mutex_lock(&userLock);
-if (user->prev) user->prev->next = user->next;
-else userFront = user->next;
+    if(!user) return;
+    pthread_mutex_lock(&userLock);
+    if (user->prev) user->prev->next = user->next;
+    else userFront = user->next;
 
-if (user->next) user->next->prev = user->prev;
-else userBack = user->prev;
+    if (user->next) user->next->prev = user->prev;
+    else userBack = user->prev;
 
-pthread_mutex_unlock(&userLock);
-close(user->sock);
-free(user);
-
+    pthread_mutex_unlock(&userLock);
+    close(user->sock);
+    free(user);
 }
 
 void iterate_users(void (*callback)(User *, void *), void *arg)
 {
-pthread_mutex_lock(&userLock);
-User *current = userFront;
-while (current) {
-User *next = current->next;
-callback(current, arg);
-current = next;
-}
-pthread_mutex_unlock(&userLock);
+    pthread_mutex_lock(&userLock);
+    User *current = userFront;
+    while (current) 
+    {
+        User *next = current->next;
+        callback(current, arg);
+        current = next;
+    }
+    pthread_mutex_unlock(&userLock);
 }

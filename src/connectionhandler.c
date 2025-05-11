@@ -44,7 +44,6 @@ static int createPassiveSocket(in_port_t port)
 		return -1;
 	}
 
-	errno = ENOSYS;
 	return fd;
 }
 
@@ -53,11 +52,11 @@ int connectionHandler(in_port_t port)
 	const int fd = createPassiveSocket(port);
 	if(fd == -1)
 	{
-		errnoPrint("Unable to create server socket");
+		errnoPrint("Unable to create server socket.");
 		return -1;
 	}
 
-	for(;;)
+	for(;;) // endlosschleife
 	{
 		struct sockaddr_in client_addr; // erstellt address struct für client
 		socklen_t client_len = sizeof(client_addr);
@@ -74,23 +73,21 @@ int connectionHandler(in_port_t port)
 		if ( client_fd == -1)
 		{
 			errnoPrint("Could not accept Client Connection");
-			free(client_fd);
+			free(*client_fd);
 			continue;
 		}
 
 		//TODO: add connection to user list and start client thread
-		//pthread_t thread = clientthread(client_fd); 
-		pthread_t tid;  
-		if ( pthread_create(&tid, NULL, clientthread, client_fd) != 0) // erzeugt thread
+		if(add_user(client_fd) == NULL)
 		{
-			errnoPrint("Could not create Thread");
-			close(*client_fd);
+			errnoPrint("Konnte keinen User erzeugen");
 			free(client_fd);
 			continue;
-		}
+		};
 
-
-		//createUser(tid, *client_fd);  -> erstellt User
+		//pthread_t thread = clientthread(client_fd); 
+		// wird aktuell in der funktion add_user verwendet
+		
 	}
 
 	return 0;	//never reached

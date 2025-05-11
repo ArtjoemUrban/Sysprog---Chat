@@ -4,6 +4,8 @@
 #include <unistd.h> // cloes()
 #include <netinet/in.h> // sockaddr_in : vereinfacht die erzeugung von sockets
 #include <pthread.h> // threads erzeugen
+#include <string.h>
+#include <stdlib.h>
 #include "connectionhandler.h"
 #include "util.h"
 #include "clientthread.h" // wird benötigt um Client thread zu erzeugen
@@ -17,7 +19,7 @@ static int createPassiveSocket(in_port_t port)
 	fd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET = IPv4, SOCKE_STREAM = TCP, 0 = Protokoll (üblicherweise)
 	if (fd == -1) 
 	{
-		perror("Could not create Socket");
+		errnoPrint("Could not create Socket");
 		return -1; // falls erstellung nicht Funktioniert
 	}
 
@@ -32,7 +34,7 @@ static int createPassiveSocket(in_port_t port)
 	if (bind(fd,(struct sockaddr*)&s_addr, sizeof(s_addr)) == -1)  // s_addr muss mit dem socket fd kommpatibel sein
 	{
 		close(fd); 
-		perror("Could not bind socket to address");
+		errnoPrint("Could not bind socket to address");
 		return -1;
 	};
 
@@ -40,7 +42,7 @@ static int createPassiveSocket(in_port_t port)
 	if (listen(fd, 4) == -1) // SOMAXCONN kann als zweiter parameter für Warteschlange verwendet werden
 	{
 		close(fd);
-		perror("Could not mark socket to be accepting conections");
+		errnoPrint("Could not mark socket to be accepting conections");
 		return -1;
 	}
 

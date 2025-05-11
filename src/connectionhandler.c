@@ -70,17 +70,18 @@ int connectionHandler(in_port_t port)
 
 		//TODO: accept() incoming connection
 		*client_fd= accept(fd, (struct sockaddr*)&client_addr, &client_len);
-		if ( client_fd == -1)
+		if ( *client_fd == -1)
 		{
 			errnoPrint("Could not accept Client Connection");
-			free(*client_fd);
+			free(client_fd);
 			continue;
 		}
 
 		//TODO: add connection to user list and start client thread
-		if(add_user(client_fd) == NULL)
+		if(add_user(*client_fd) == NULL)
 		{
 			errnoPrint("Konnte keinen User erzeugen");
+			close(*client_fd);
 			free(client_fd);
 			continue;
 		};

@@ -19,13 +19,13 @@ typedef struct User
 //CAUTION: You will need proper locking!
 
 
-void broadcast_message(const char *message);
-void cleanup_user_list(void);
+// Fügt einen neuen Benutzer zur Liste hinzu und startet dessen Client-Thread
+User *add_user(int sock);
 
+// Entfernt einen Benutzer aus der Liste
+void remove_user(User *user);
 
-User *listADD(pthread_t *thread, int client_sock);
-void listForEach(void (*func)(User *));
-int listRemoveByName(const char *name);
-void listRemoveAll(void);
+// Iteriert über alle Benutzer in der Liste und ruft für jeden eine Callback-Funktion auf
+void iterate_users(void (*callback)(User *user, void *arg), void *arg);
 
 #endif

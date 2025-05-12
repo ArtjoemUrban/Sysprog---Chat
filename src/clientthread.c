@@ -1,3 +1,4 @@
+#include "network.h"
 #include "clientthread.h"
 #include "user.h"
 #include "util.h"
@@ -10,15 +11,17 @@
 
 #define BUFFER_SIZE 1024
 
-void broadcast(User *user, void *arg)
+ void broadcast(User *user, void *arg)
 {
-	char *message = (char *)arg;
-	send(user->sock, message, strlen(message),0);
-}
+	Message *msg = (Message *)arg;
+	networkSend(user->sock, msg);
+} 
 
 void *clientthread(void *arg)
 {
 	User *self = (User *)arg;
+
+	Message msg;
 
 	debugEnable();
 	debugPrint("Client thread started.");
@@ -29,23 +32,15 @@ void *clientthread(void *arg)
 	
 	for(;;)
 	{
-		ssize_t received = recv(self->sock, buffer, sizeof(buffer) -1, 0);
-		if(received <= 0)
+
+		if(networkReceive(self->sock, &msg) < 0)
 		{
-			if(received == 0)
-			{
-				debugPrint("Client hat die Verbindung beendet");
-			}else
-			{
-				errnoPrint("recv hat nicht funktioniert");
-			}
+			errnoPrint("konnte Nachricht nicht empfangen");
 			break;
 		}
-		buffer[received] = '\0'; // Null-Terminierung der Nachricht
 
-		iterate_users(broadcast, buffer);
+		iterate_users(broadcast, &msg);
 		
-		memset(buffer, 0, sizeof(buffer)); // setzte alles im buffer auf '0'
 	}
 
 	debugPrint("Client thread stopping.");

@@ -12,12 +12,12 @@ int networkReceive(int fd, Message *buffer)
 	ssize_t recived = recv(fd, &net_len, sizeof(net_len), MSG_WAITALL);
 	if(recived != sizeof(net_len))
 	{
-		errnoPrint("length field passt nicht zum protokoll");
+		errorPrint("length field passt nicht zum protokoll");
 		return -1;
 	}
 
 	//TODO: Convert length byte order
-	buffer->len = ntohs(net_len);
+	buffer->len = ntohs(net_len); // wandelt erhaltene bit order auf littleEndian um, damit system sie verarbeiten kann
 
 	//TODO: Validate length
 	if(buffer->len > MSG_MAX)
@@ -48,7 +48,9 @@ int networkSend(int fd, const Message *buffer)
 		return -1;
 	}
 
-	uint16_t msg_len = htons(buffer->len);
+	uint16_t msg_len = htons(buffer->len); // setzt die korrekte byte order für kommunikation über das Netzwerk 
+
+	// -> auf big Endian da dies von TCP erwartet wird
 
 	if(send(fd,&msg_len, sizeof(msg_len),0) != sizeof(msg_len))  // sendet die länge
 	{

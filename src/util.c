@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
@@ -325,3 +326,16 @@ uint64_t hton64u(uint64_t host64u)
 
 	return conv.uint64;
 }
+
+bool isValidUsername(const char *name, uint16_t len)
+{
+	for( uint16_t i = 0; i < len; ++i)
+	{
+		char a = name[i];
+		if(a < 33 || a > 126 || a == '\'' || a == '"' || a == '`')
+		{
+			return false;
+		}
+	}
+	return true;
+};

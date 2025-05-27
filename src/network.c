@@ -2,8 +2,63 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <endian.h>
+#include <stdbool.h>
 #include "network.h"
 #include "util.h"
+
+bool reciveLoginRequest(int fd, LoginRequest * buff)
+{
+	// 1. Header lesen
+    ssize_t received = recv(fd, &buff->header, sizeof(Header), MSG_WAITALL);
+	buff->header.type = ntohl(buff->header.type);
+	buff->header.len = ntohl(buff->header.len);
+    if (received <= 0) {
+        perror("recv(header)");
+        return false;
+    }
+    if ((size_t)received != sizeof(Header)) {
+        errorPrint("Header hat falsche Länge");
+        return false;
+    }
+
+    // 2. Header prüfen
+    if (buff->header.type != LRQ) {
+        debugPrint("Erste Nachricht ist kein LRQ");
+        return false;
+    }
+
+    // Optional: buff->header.length verwenden, um zu prüfen, wie viel noch erwartet wird
+
+    // 3. Restliche Daten lesen (alles außer dem Header)
+    size_t restSize = sizeof(LoginRequest) - sizeof(Header);
+    received = recv(fd, ((char*)buff) + sizeof(Header), restSize, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
+    if (received <= 0) {
+        perror("recv(rest)");
+        return false;
+    }
+    if ((size_t)received != restSize) {
+        errorPrint("Restdaten haben falsche Länge");
+        return false;
+    }
+
+    // 4. Magic prüfen
+	buff->magic = ntohl(buff->magic);
+
+
+    if (buff->magic != MAGIC) {
+        errorPrint("Falsche Magic");
+        return false;
+    }
+
+    return true;
+
+};
+
+void sendLoginResponse(int fd, uint8_t code)
+{
+
+};
 
 int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
 {
@@ -14,7 +69,7 @@ int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 
 																	      // ausname verbindung bricht ab
 	if(received != sizeof(net_len))
 	{
-		errorPrint("length field passt nicht zum protokoll ( recv returned %zd): %s", received, strerror(errno));
+		debugPrint("length field passt nicht zum protokoll ( recv returned %zd)", received);
 		return -1;
 	}
 
@@ -66,4 +121,22 @@ int networkSend(int fd, const Message *buffer)  //gibt bei erfolg 0 zurück und 
 	}
 
 	return 0;
+}
+
+int broadcastMsg(const void* msg, size_t msgSize)
+{
+
+}
+
+
+UserRemoved create_remove_msg(const char* name, RemoveReson reson)
+{
+	UserRemoved msg;
+	msg.header.type = URM;
+	msg.header.len = htons(sizeof(UserRemoved));
+	msg.timestamp = htobe64(current_timestamp());
+	msg.code = reson;
+	memcpy(msg.name, name,USERNAME_RAW_MAX);
+
+	return msg;
 }

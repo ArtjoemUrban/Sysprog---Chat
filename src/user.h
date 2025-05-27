@@ -10,6 +10,7 @@ typedef struct User
 	struct User *next;
 	pthread_t thread;	//thread ID of the client thread
 	int sock;		//socket for client
+	char name [32];
 } User;
 
 //TODO: Add prototypes for functions that fulfill the following tasks:

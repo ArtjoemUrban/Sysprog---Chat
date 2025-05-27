@@ -63,7 +63,7 @@ int connectionHandler(in_port_t port)
 		struct sockaddr_in client_addr; // erstellt address struct für client
 		socklen_t client_len = sizeof(client_addr);
 
-		int* client_fd = malloc(sizeof(int)); // speicher für jeden Thread reservieren , gespeichert wir
+		int* client_fd = malloc(sizeof(int)); // speicher für jeden Thread reservieren , gespeichert wird
 		if ( client_fd == 0)
 		{
 			errnoPrint("Memmory allocation failed");

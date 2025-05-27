@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #define MSG_MAX 512  // Maximale Länge des Textteils gemäß RFC
 #define USERNAME_MAX 32 //inkl. nullterminiert für S2C
@@ -15,7 +16,7 @@
 
  #define MAGIC 0x0badf00d
  #define VERSION 0
- #define USER_NAME_MAX 31
+ #define USER_NAME_MAX 32
  #define SNAME_MAX 31
 
  typedef enum
@@ -28,28 +29,24 @@
 	URM = 5, 	// User Removed
  } MessageType;
 
- typedef enum 
- {
-	SUCCESS = 0,
-	NAME_TAKEN = 1,
-	NAME_INVALID = 2,
-	PROTOCOL_VERSION_MISMATCH = 3,
-	SERVER_ERROR = 255,
- }LREStatusCode; // für LRE
-
+ 
+ //Header für alle Nachrichtentypen
  typedef struct __attribute__((packed))
  {
 	uint8_t type;
 	uint16_t len;		//real length of the text (big endian, len <= MSG_MAX)
  } Header;
  
+ // LRQ
  typedef struct  __attribute__((packed))
  {
    Header header;
    uint32_t magic;
-   uint8_t version;
+   uint8_t version; // ist zurzeit 0
    char name[USER_NAME_MAX];
  } LoginRequest;
+
+ bool reciveLoginRequest(int fd, LoginRequest *buff);
  /* The LoginRequest message always has to be the first message that is sent from
 the client to the server. If the server detects an invalid type, length or
 magic, it shall close the connection without sending any message back.
@@ -60,6 +57,15 @@ If the Name field contains an invalid byte, the server shall notify the client
 by setting the Code in the LoginResponse accordingly.
 */
 
+typedef enum 
+{
+	SUCCESS = 0,
+	NAME_TAKEN = 1,
+	NAME_INVALID = 2,
+	PROTOCOL_VERSION_MISMATCH = 3,
+	SERVER_ERROR = 255,
+}LREStatusCode; // für LRE
+
 typedef struct  __attribute__((packed))
 {
   Header header;
@@ -68,6 +74,8 @@ typedef struct  __attribute__((packed))
   char serverName[SNAME_MAX];
   
 } LoginResponse;
+
+void sendLoginResponse(int fd, uint8_t code);
 /* The LoginResponse message always is the first message the client receives from
 the server. The log in only was successful, if the LoginRequest has the
 correct Type, a valid Length, the correct Magic and Code=0. In any other case,
@@ -79,8 +87,7 @@ the server immediately.*/
 
  typedef struct __attribute__((packed))
  {
-	uint8_t type;
-	uint16_t len;
+	Header header;
 	char text[MSG_MAX];
 
  }Client2Server;
@@ -100,23 +107,32 @@ the server immediately.*/
 
  typedef struct __attribute__((packed))
  {
-	 uint8_t type;
-	 uint16_t len;
+	 Header header;
 	 uint64_t timestamp;
 	 char name[USERNAME_RAW_MAX];  // not null-terminated
  } UserAdded;
 
- typedef struct __attribute__((packed))
+typedef enum 
 {
-    uint8_t type;
-    uint16_t len;
+	LEFT = 0,
+	KICKED = 1,
+	ERROR = 2
+} RemoveReson;
+ 
+typedef struct __attribute__((packed))
+{
+    Header header;
     uint64_t timestamp;
     uint8_t code;  // 0: left, 1: kicked, 2: error
     char name[USERNAME_RAW_MAX];  // not null-terminated
 } UserRemoved;
 
+
+
+
+
+
  /* simple-client: */
-enum { MSG_MAX = 1024 };
 typedef struct __attribute__((packed))
 {
 	uint16_t len;		//real length of the text (big endian, len <= MSG_MAX)

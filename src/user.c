@@ -53,7 +53,7 @@ void remove_user(User *user)
     else userBack = user->prev;
 
     pthread_mutex_unlock(&userLock);
-    close(user->sock);
+    close(user->sock); // schließt socket
     free(user);
 }
 

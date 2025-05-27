@@ -9,11 +9,9 @@
 
 bool reciveLoginRequest(int fd, LoginRequest * buff)
 {
-	// 1. Header lesen
+	// Header lesen
     ssize_t received = recv(fd, &buff->header, sizeof(Header), MSG_WAITALL);
-	buff->header.type = ntohl(buff->header.type);
-	buff->header.len = ntohl(buff->header.len);
-    if (received <= 0) {
+    if (received !=sizeof(Header)) {
         perror("recv(header)");
         return false;
     }
@@ -21,38 +19,32 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
         errorPrint("Header hat falsche Länge");
         return false;
     }
-
-    // 2. Header prüfen
+    // Header-> Type prüfen
     if (buff->header.type != LRQ) {
         debugPrint("Erste Nachricht ist kein LRQ");
         return false;
     }
+	buff->header.len = ntohs(buff->header.len);
+	if(buff->header.len < 5 || buff->header.len > (USER_NAME_MAX +5))
+	{
+		errorPrint("Ungültige länge");
+		return false;
+	}
 
-    // Optional: buff->header.length verwenden, um zu prüfen, wie viel noch erwartet wird
-
-    // 3. Restliche Daten lesen (alles außer dem Header)
-    size_t restSize = sizeof(LoginRequest) - sizeof(Header);
-    received = recv(fd, ((char*)buff) + sizeof(Header), restSize, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
-    if (received <= 0) {
-        perror("recv(rest)");
-        return false;
-    }
-    if ((size_t)received != restSize) {
+    // Restliche Daten lesen 
+    received = recv(fd, ((char*)buff) + sizeof(Header), buff->header.len, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
+    if (received != buff->header.len) {
         errorPrint("Restdaten haben falsche Länge");
         return false;
     }
 
-    // 4. Magic prüfen
+    // Magic prüfen
 	buff->magic = ntohl(buff->magic);
-
-
     if (buff->magic != MAGIC) {
         errorPrint("Falsche Magic");
         return false;
     }
-
     return true;
-
 };
 
 void sendLoginResponse(int fd, uint8_t code)

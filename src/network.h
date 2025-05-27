@@ -16,8 +16,9 @@
 
  #define MAGIC 0x0badf00d
  #define VERSION 0
- #define USER_NAME_MAX 32
- #define SNAME_MAX 31
+ #define USER_NAME_MAX 31
+ #define SNAME_MAX 31 // server name nicht null terminiert
+ #define NAME_FINAL 32 // null terminiert
 
  typedef enum
  {
@@ -43,7 +44,7 @@
    Header header;
    uint32_t magic;
    uint8_t version; // ist zurzeit 0
-   char name[USER_NAME_MAX];
+   char name[USER_NAME_MAX]; // !!! wird nicht nullterminiert daher 31 byte
  } LoginRequest;
 
  bool reciveLoginRequest(int fd, LoginRequest *buff);
@@ -96,10 +97,9 @@ the server immediately.*/
 
  typedef struct __attribute__((packed))
  {
-	uint8_t type;
-	uint16_t len;
+	Header header;
 	uint64_t timeStamp;
-	char originalSender[USERNAME_MAX];
+	char originalSender[NAME_FINAL];
 	char text[MSG_MAX];
 
  }Server2Client;
@@ -109,7 +109,7 @@ the server immediately.*/
  {
 	 Header header;
 	 uint64_t timestamp;
-	 char name[USERNAME_RAW_MAX];  // not null-terminated
+	 char name[USER_NAME_MAX];  // not null-terminated
  } UserAdded;
 
 typedef enum 
@@ -124,7 +124,7 @@ typedef struct __attribute__((packed))
     Header header;
     uint64_t timestamp;
     uint8_t code;  // 0: left, 1: kicked, 2: error
-    char name[USERNAME_RAW_MAX];  // not null-terminated
+    char name[USER_NAME_MAX];  // not null-terminated
 } UserRemoved;
 
 

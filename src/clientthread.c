@@ -26,34 +26,51 @@ void *clientthread(void *arg)
 
 	Message msg;
 	debugEnable();
-
+/// --------------------------------------------------------- Prüfung des Login Requests ------------------------------------
 	LoginRequest loginRequest;
 
-	if(!reciveLoginRequest(self->sock,  &loginRequest))
+	if(!reciveLoginRequest(self->sock, &loginRequest))
 	{
+		debugPrint("Kein validen LRQ erhalten");
 		remove_user(self);
 		return NULL;
 	}
-
-
 	// Prüfen ob Username nicht zu lange ist
-	uint16_t lrq_len = ntohs(loginRequest.header.len); // länge des LRQ ohne Header
-	if( lrq_len < 5 || lrq_len > (5 + USER_NAME_MAX)) // 5 bytes sind magic und version
-	{
-		debugPrint("Username zu Lang oder Kurz");
-		remove_user(self);
-		return NULL;
-	}
+	uint8_t name_len = loginRequest.header.len - sizeof(uint32_t) - sizeof(uint8_t); // 4 byte magic und 1 byte version
+	
 	// Prüfen ob Username valide ist
-	uint16_t name_len = lrq_len - 5;
 	if(!isValidUsername(loginRequest.name, name_len))
 	{
-		debugPrint("Username enthält ungültige zeichen");
+		debugPrint("Username nicht gueltig");
 		sendLoginResponse(self->sock, NAME_INVALID);
 		remove_user(self);
+		return NULL;
 	};
+	// Prüfen ob die Version stimmt
+	if(loginRequest.version != 0)
+	{
+		debugPrint("Ungültige Version des Protokolls");
+		sendLoginResponse(self->sock, PROTOCOL_VERSION_MISMATCH);
+		remove_user(self);
+		return NULL;
+	}
+	char name_cpy[USER_NAME_MAX +1] ={0}; // setzt zu beginn alle bytes auf null
+	memcpy(name_cpy, loginRequest.name, name_len);
+	name_cpy[name_len] = '\0'; // Null termenierung anhaengen
 
-	
+	if(isNameTaken(name_cpy))
+	{
+		debugPrint("Name ist bereits vergeben");
+		sendLoginResponse(self->sock, NAME_TAKEN);
+		remove_user(self);
+		return NULL;
+	}
+
+	sendLoginResponse(self->sock, SUCCESS);
+	memcpy(self->name, name_cpy, USER_NAME_MAX +1);
+
+// ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
+
 	debugPrint("Client thread started.");
 
 	//TODO: Receive messages and send them to all users, skip self
@@ -62,7 +79,6 @@ void *clientthread(void *arg)
 	
 	for(;;)
 	{
-
 		if(networkReceive(self->sock, &msg) < 0)
 		{
 			debugPrint("konnte Nachricht nicht empfangen");

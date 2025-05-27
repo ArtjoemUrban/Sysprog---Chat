@@ -44,7 +44,7 @@ size_t nameBytesValidate(const char *input, size_t n);
 uint64_t ntoh64u(uint64_t network64u);
 uint64_t hton64u(uint64_t host64u);
 
-bool isValidUsername(const char *name, uint16_t len);
+bool isValidUsername(const char *name, uint8_t len);
 
 #ifdef __cplusplus
 }

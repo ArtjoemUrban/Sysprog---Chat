@@ -327,8 +327,13 @@ uint64_t hton64u(uint64_t host64u)
 	return conv.uint64;
 }
 
-bool isValidUsername(const char *name, uint16_t len)
+bool isValidUsername(const char *name, uint8_t len)
 {
+	if( len < 5 || len > (5 + 31)) // 5 bytes sind magic und version 31 ist max laenge vom name
+	{
+		debugPrint("Username zu Lang oder Kurz");
+		return false;
+	}
 	for( uint16_t i = 0; i < len; ++i)
 	{
 		char a = name[i];

@@ -31,5 +31,5 @@ void remove_user(User *user);
 void iterate_users(void (*callback)(User *user, void *arg), void *arg);
 
 // Prüfe ob Username bereits vorhanden
-bool isNameTaken(char newName);
+bool isNameTaken(const char* newName);
 #endif

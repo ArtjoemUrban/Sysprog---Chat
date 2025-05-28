@@ -12,7 +12,7 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
 	// Header lesen
     ssize_t received = recv(fd, &buff->header, sizeof(Header), MSG_WAITALL);
     if (received !=sizeof(Header)) {
-        perror("recv(header)");
+        errorPrint("recv(header)");
         return false;
     }
     if ((size_t)received != sizeof(Header)) {
@@ -30,14 +30,12 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
 		errorPrint("Ungültige länge");
 		return false;
 	}
-
     // Restliche Daten lesen 
     received = recv(fd, ((char*)buff) + sizeof(Header), buff->header.len, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
     if (received != buff->header.len) {
         errorPrint("Restdaten haben falsche Länge");
         return false;
     }
-
     // Magic prüfen
 	buff->magic = ntohl(buff->magic);
     if (buff->magic != MAGIC) {
@@ -49,7 +47,13 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
 
 void sendLoginResponse(int fd, uint8_t code)
 {
+	LoginResponse loginResponse;
+	// Nachricht muss erstellt werden
 
+	if(send(fd, &loginResponse,sizeof(loginResponse)) != sizeof(loginResponse)) // evtl Header und payload getrent senden
+	{
+		return -1;
+	}
 };
 
 int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
@@ -115,18 +119,18 @@ int networkSend(int fd, const Message *buffer)  //gibt bei erfolg 0 zurück und 
 	return 0;
 }
 
-int broadcastMsg(const void* msg, size_t msgSize)
+/*int broadcastMsg(const void* msg, size_t msgSize)
 {
 
-}
+}*/
 
-
+// prototyp vlt falsch
 UserRemoved create_remove_msg(const char* name, RemoveReson reson)
 {
 	UserRemoved msg;
 	msg.header.type = URM;
 	msg.header.len = htons(sizeof(UserRemoved));
-	msg.timestamp = htobe64(current_timestamp());
+	// msg.timestamp = htobe64(current_timestamp()); haben keine funktion für timestemp -> compiler fehler
 	msg.code = reson;
 	memcpy(msg.name, name,USERNAME_RAW_MAX);
 

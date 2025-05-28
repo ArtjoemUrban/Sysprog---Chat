@@ -70,14 +70,18 @@ void iterate_users(void (*callback)(User *, void *), void *arg)
     pthread_mutex_unlock(&userLock);
 }
 
-bool isNameTaken(char newName)
+bool isNameTaken(const char* newName)
 {
     pthread_mutex_lock(&userLock);
     User *current = userFront;
     while(current)
     {
-        if(current->name == newName)
-        {   return true;}
+        if(strcmp(current->name, newName) == 0)
+        {
+            pthread_mutex_unlock(&userLock);
+            return true;
+        }
+        current = current->next;
     }
     pthread_mutex_unlock(&userLock);
     return false;

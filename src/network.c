@@ -72,7 +72,7 @@ void sendLoginResponse(int fd, uint8_t code)
 	loginResponse.header.len = htons(4 + 1 + server_name_len);
 
 	// Payload
-	loginResponse.magic = htonl(MAGIC);
+	loginResponse.magic = htonl(0xc001c001);
 	loginResponse.code = code; // 1 Byte keine umwandlung nötig
 
 	memset(loginResponse.serverName, 0, SNAME_MAX); // damit keine Seltsamen Daten gesendet werden
@@ -95,7 +95,7 @@ void sendUserAddedtoALL(User *user, void *arg)
 	size_t name_len = strlen((char *)arg);
 	if(name_len > USER_NAME_MAX)
 	{
-		errorPrint("Fehler Name wurde laemger weiter gegeben");
+		errorPrint("Fehler: Name wurde laemger weiter gegeben");
 		return;
 	}
 

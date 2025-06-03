@@ -1,14 +1,19 @@
 #ifndef CHAT_PROTOCOL_H
 #define CHAT_PROTOCOL_H
 
+#include "user.h"
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+
+
 
 #define MSG_MAX 512  // Maximale Länge des Textteils gemäß RFC
 #define USERNAME_MAX 32 //inkl. nullterminiert für S2C
 #define USERNAME_RAW_MAX 31 //max. Länge von Namen ohne Null-Terminator
 
+#define SERVER_NAME "Chat"
 
 /* TODO: When implementing the fully-featured network protocol (including
  * login), replace this with message structures derived from the network
@@ -48,15 +53,6 @@
  } LoginRequest;
 
  bool reciveLoginRequest(int fd, LoginRequest *buff);
- /* The LoginRequest message always has to be the first message that is sent from
-the client to the server. If the server detects an invalid type, length or
-magic, it shall close the connection without sending any message back.
-In any other case, it shall send back a LoginResponse message, as given below.
-Names may contain every ASCII character with a value between (including) 33
-and 126, except for the quote ('), the double quote ("), and the backtick (`).
-If the Name field contains an invalid byte, the server shall notify the client
-by setting the Code in the LoginResponse accordingly.
-*/
 
 typedef enum 
 {
@@ -77,14 +73,6 @@ typedef struct  __attribute__((packed))
 } LoginResponse;
 
 void sendLoginResponse(int fd, uint8_t code);
-/* The LoginResponse message always is the first message the client receives from
-the server. The log in only was successful, if the LoginRequest has the
-correct Type, a valid Length, the correct Magic and Code=0. In any other case,
-the connection shall be closed by the client and the server.
-The rules for allowed server names are the same as for user names.
-If the client detects an invalid server name, it shall drop the connection to
-the server immediately.*/
-
 
  typedef struct __attribute__((packed))
  {
@@ -111,6 +99,10 @@ the server immediately.*/
 	 uint64_t timestamp;
 	 char name[USER_NAME_MAX];  // not null-terminated
  } UserAdded;
+
+void sendUserAddedtoALL(User *user, void *arg); // User der die Nachricht erhält
+
+void sendUserListToNewUser(User *user, void *arg);
 
 typedef enum 
 {

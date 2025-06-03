@@ -1,8 +1,9 @@
 #ifndef USER_H
 #define USER_H
 
+#include <stdbool.h>
 #include <pthread.h>
-#include "network.h"
+
 
 typedef struct User
 {
@@ -11,7 +12,7 @@ typedef struct User
 	struct User *next;
 	pthread_t thread;	//thread ID of the client thread
 	int sock;		//socket for client
-	char name [NAME_FINAL]; // Null terminiert
+	char name [32]; // Null terminiert
 } User;
 
 //TODO: Add prototypes for functions that fulfill the following tasks:

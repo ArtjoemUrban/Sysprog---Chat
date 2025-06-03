@@ -27,25 +27,17 @@ void *clientthread(void *arg)
 	Message msg;
 	debugEnable();
 /// --------------------------------------------------------- Prüfung des Login Requests ------------------------------------
-	LoginRequest loginRequest;
+	LoginRequest loginRequest; // eventuell speicher mit malloc() verwalten -> kein Stack over flow
 
 	if(!reciveLoginRequest(self->sock, &loginRequest))
 	{
-		debugPrint("Kein validen LRQ erhalten");
+		debugPrint("Fehler beim Empfangen des LRQ");
 		remove_user(self);
 		return NULL;
 	}
 	// Prüfen ob Username nicht zu lange ist
 	uint8_t name_len = loginRequest.header.len - sizeof(uint32_t) - sizeof(uint8_t); // 4 byte magic und 1 byte version
 	
-	// Prüfen ob Username valide ist
-	if(!isValidUsername(loginRequest.name, name_len))
-	{
-		debugPrint("Username nicht gueltig");
-		sendLoginResponse(self->sock, NAME_INVALID);
-		remove_user(self);
-		return NULL;
-	};
 	// Prüfen ob die Version stimmt
 	if(loginRequest.version != 0)
 	{
@@ -54,7 +46,17 @@ void *clientthread(void *arg)
 		remove_user(self);
 		return NULL;
 	}
-	char name_cpy[USER_NAME_MAX +1] ={0}; // setzt zu beginn alle bytes auf null
+
+	// Prüfen ob Username valide ist
+	if(!isValidUsername(loginRequest.name, name_len))
+	{
+		debugPrint("Username nicht gueltig");
+		sendLoginResponse(self->sock, NAME_INVALID);
+		remove_user(self);
+		return NULL;
+	};
+	
+	char name_cpy[NAME_FINAL] ={0}; // setzt zu beginn alle bytes auf null
 	memcpy(name_cpy, loginRequest.name, name_len);
 	name_cpy[name_len] = '\0'; // Null termenierung anhaengen
 
@@ -67,8 +69,16 @@ void *clientthread(void *arg)
 	}
 
 	sendLoginResponse(self->sock, SUCCESS);
-	memcpy(self->name, name_cpy, USER_NAME_MAX +1);
+	memcpy(self->name, name_cpy, NAME_FINAL); // ??? evtl mutex 
+	self->name[NAME_FINAL] = '\0'; // Um die Null-Terminierung noch mal zu garantieren 
 
+	debugPrint("LoginResponse verschickt");
+
+	iterate_users(sendUserAddedtoALL,loginRequest.name); // sendet UserAdded an alle User
+	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
+
+	infoPrint("User: %s wurde erfolgreich regestriert", self->name);
+	
 // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
 
 	debugPrint("Client thread started.");
@@ -79,13 +89,13 @@ void *clientthread(void *arg)
 	
 	for(;;)
 	{
-		if(networkReceive(self->sock, &msg) < 0)
+		/*if(networkReceive(self->sock, &msg) < 0)
 		{
 			debugPrint("konnte Nachricht nicht empfangen");
 			break;
 		}
 
-		iterate_users(broadcast, &msg);
+		iterate_users(broadcast, &msg);*/
 		
 	}
 

@@ -3,33 +3,40 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <endian.h>
+
 #include <stdbool.h>
 #include "network.h"
 #include "util.h"
+#include "user.h"
 
 bool reciveLoginRequest(int fd, LoginRequest * buff)
 {
 	// Header lesen
     ssize_t received = recv(fd, &buff->header, sizeof(Header), MSG_WAITALL);
     if (received !=sizeof(Header)) {
-        errorPrint("recv(header)");
+        errnoPrint("Fehler beim empfangen des LRQ");
+		
         return false;
     }
     if ((size_t)received != sizeof(Header)) {
         errorPrint("Header hat falsche Länge");
         return false;
     }
+
     // Header-> Type prüfen
     if (buff->header.type != LRQ) {
         debugPrint("Erste Nachricht ist kein LRQ");
         return false;
     }
+	
+	// Header-> Len prüfen
 	buff->header.len = ntohs(buff->header.len);
 	if(buff->header.len < 5 || buff->header.len > (USER_NAME_MAX +5))
 	{
 		errorPrint("Ungültige länge");
 		return false;
 	}
+
     // Restliche Daten lesen 
     received = recv(fd, ((char*)buff) + sizeof(Header), buff->header.len, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
     if (received != buff->header.len) {
@@ -47,15 +54,96 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
 
 void sendLoginResponse(int fd, uint8_t code)
 {
-	LoginResponse loginResponse;
-	// Nachricht muss erstellt werden
+	// Servername Prüfen
+	const char *server_name = SERVER_NAME;
+	size_t server_name_len = strlen(server_name);
 
-	if(send(fd, &loginResponse,sizeof(loginResponse)) != sizeof(loginResponse)) // evtl Header und payload getrent senden
+	if(server_name_len < 1 || server_name_len > SNAME_MAX)
 	{
-		return -1;
+		errorPrint("Servername ist ungültig für LRE");
+		return;
 	}
+
+	// Nachricht muss erstellt werden
+	LoginResponse loginResponse;
+
+	// Header
+	loginResponse.header.type = LRE;
+	loginResponse.header.len = htons(4 + 1 + server_name_len);
+
+	// Payload
+	loginResponse.magic = htonl(MAGIC);
+	loginResponse.code = code; // 1 Byte keine umwandlung nötig
+
+	memset(loginResponse.serverName, 0, SNAME_MAX); // damit keine Seltsamen Daten gesendet werden
+	memcpy(loginResponse.serverName, server_name, server_name_len); // Name wird gesetzt
+
+	// gesamt länge
+	size_t loginResponse_len = sizeof(Header) + 4 + 1 + server_name_len;
+
+	// SEnden
+	size_t sent = send(fd, &loginResponse, loginResponse_len, 0);
+	if(sent != (ssize_t) loginResponse_len)
+	{
+		errnoPrint("Fehler beim senden des LRE");
+	}
+
 };
 
+void sendUserAddedtoALL(User *user, void *arg) 
+{
+	size_t name_len = strlen((char *)arg);
+	if(name_len > USER_NAME_MAX)
+	{
+		errorPrint("Fehler Name wurde laemger weiter gegeben");
+		return;
+	}
+
+	// erstell UAD
+	UserAdded message;
+	message.header.type = UAD;
+	message.header.len = htons(8 + name_len);
+	message.timestamp = htobe64((uint64_t)time(NULL)); // Aktueller Timestamp
+	memcpy(message.name, (char *) arg, name_len);
+
+	size_t total_len = sizeof(Header) + 8 + name_len;
+	ssize_t sent = send(user->sock, &message, total_len,0);
+	if(sent != (ssize_t)total_len)
+	{
+		errnoPrint("konnte UserAdded nicht versenden an %s", user->name);
+	}
+}
+
+void sendUserListToNewUser(User *user, void *arg)
+{
+	char name[USER_NAME_MAX];
+	memcpy(name, user->name, strlen(user->name));
+	size_t name_len = strlen(name);
+	if(name_len > USER_NAME_MAX)
+	{
+		errorPrint("Fehler Name wurde laemger weiter gegeben");
+		return;
+	}
+
+	// erstell UAD
+	UserAdded message;
+	message.header.type = UAD;
+	message.header.len = htons(8 + name_len);
+	message.timestamp = 0; // Timestamp auf null um zu signalisiern das dieser user schon da war
+	memcpy(message.name, name, name_len);
+
+	size_t total_len = sizeof(Header) + 8 + name_len;
+	ssize_t sent = send(arg, &message, total_len,0);
+	if(sent != (ssize_t)total_len)
+	{
+		errnoPrint("Konnte USer: %s nicht ankündigen", user->name);
+	}
+}
+
+
+
+
+//----------------------------------Aufgabe 1 Simple Client --------------------------------------------------
 int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
 {
 	uint16_t net_len;

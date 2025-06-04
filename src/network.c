@@ -95,7 +95,7 @@ void sendUserAddedtoALL(User *user, void *arg)
 	size_t name_len = strlen((char *)arg);
 	if(name_len > USER_NAME_MAX)
 	{
-		errorPrint("Fehler: Name wurde laemger weiter gegeben");
+		errorPrint("Fehler: Name wurde laenger weiter gegeben");
 		return;
 	}
 
@@ -107,38 +107,44 @@ void sendUserAddedtoALL(User *user, void *arg)
 	memcpy(message.name, (char *) arg, name_len);
 
 	size_t total_len = sizeof(Header) + 8 + name_len;
+	int socket_fd = *(int *)arg; // casten von void* zu int* und dann dereferenzieren
 	ssize_t sent = send(user->sock, &message, total_len,0);
 	if(sent != (ssize_t)total_len)
 	{
 		errnoPrint("konnte UserAdded nicht versenden an %s", user->name);
 	}
+	infoPrint("UserAdded Nachricht an %s gesendet", user->name);
 }
 
 void sendUserListToNewUser(User *user, void *arg)
 {
-	char name[USER_NAME_MAX];
-	memcpy(name, user->name, strlen(user->name));
-	size_t name_len = strlen(name);
-	if(name_len > USER_NAME_MAX)
-	{
-		errorPrint("Fehler Name wurde laemger weiter gegeben");
-		return;
-	}
+    int socket_fd = *(int *)arg;
 
-	// erstell UAD
-	UserAdded message;
-	message.header.type = UAD;
-	message.header.len = htons(8 + name_len);
-	message.timestamp = 0; // Timestamp auf null um zu signalisiern das dieser user schon da war
-	memcpy(message.name, name, name_len);
+    char name[USER_NAME_MAX];
+    strncpy(name, user->name, USER_NAME_MAX);
+    name[USER_NAME_MAX - 1] = '\0';
 
-	size_t total_len = sizeof(Header) + 8 + name_len;
-	ssize_t sent = send(arg, &message, total_len,0);
-	if(sent != (ssize_t)total_len)
-	{
-		errnoPrint("Konnte USer: %s nicht ankündigen", user->name);
-	}
+    size_t name_len = strlen(name);
+    if (name_len >= USER_NAME_MAX) {
+        errorPrint("Name zu lang");
+        return;
+    }
+
+    UserAdded message;
+    memset(&message, 0, sizeof(UserAdded));  // Verhindert uninitialisierte Bytes!
+
+    message.header.type = UAD;
+    message.header.len = htons(sizeof(Header) + sizeof(uint64_t) + name_len);
+    message.timestamp = 0;
+    memcpy(message.name, name, name_len);
+
+    size_t total_len = sizeof(Header) + sizeof(uint64_t) + name_len;
+    ssize_t sent = send(socket_fd, &message, total_len, 0);
+    if (sent != (ssize_t)total_len) {
+        errnoPrint("Konnte User: %s nicht ankündigen", user->name);
+    }
 }
+
 
 
 

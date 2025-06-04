@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,6 +9,17 @@
 #include "network.h"
 #include "util.h"
 #include "user.h"
+
+bool chat_paused = false;
+
+typedef struct {
+    int fd;
+    char name[USER_NAME_MAX];
+} Client;
+
+#define MAX_CLIENTS 100
+Client clients[MAX_CLIENTS];
+int client_count = 0;
 
 bool reciveLoginRequest(int fd, LoginRequest * buff)
 {
@@ -50,6 +62,13 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
         return false;
     }
     return true;
+
+	//username prüfen
+	if (buff->name[0] == '\0' || memchr(buff->name, '\0', USERNAME_RAW_MAX)) {
+    errorPrint("Ungültiger Username (Null-Byte oder leer)");
+    return false;
+}
+
 };
 
 void sendLoginResponse(int fd, uint8_t code)
@@ -104,7 +123,10 @@ void sendUserAddedtoALL(User *user, void *arg)
 	message.header.type = UAD;
 	message.header.len = htons(8 + name_len);
 	message.timestamp = htobe64((uint64_t)time(NULL)); // Aktueller Timestamp
+	//memcpy(message.name, (char *) arg, name_len);
+	size_t name_len = strnlen((char*)arg, USERNAME_RAW_MAX);
 	memcpy(message.name, (char *) arg, name_len);
+
 
 	size_t total_len = sizeof(Header) + 8 + name_len;
 	ssize_t sent = send(user->sock, &message, total_len,0);
@@ -213,14 +235,98 @@ int networkSend(int fd, const Message *buffer)  //gibt bei erfolg 0 zurück und 
 }*/
 
 // prototyp vlt falsch
-UserRemoved create_remove_msg(const char* name, RemoveReson reson)
+UserRemoved create_remove_msg(const char* name, RemoveReson reson, int fd)
 {
 	UserRemoved msg;
 	msg.header.type = URM;
 	msg.header.len = htons(sizeof(UserRemoved));
+	msg.timestamp = htobe64((uint64_t)time(NULL));
 	// msg.timestamp = htobe64(current_timestamp()); haben keine funktion für timestemp -> compiler fehler
 	msg.code = reson;
 	memcpy(msg.name, name,USERNAME_RAW_MAX);
+	ssize_t sent = send(fd, &msg, sizeof(UserRemoved), 0);
+if (sent != sizeof(UserRemoved)) {
+    errnoPrint("Fehler beim Senden von UserRemoved");
+}
 
 	return msg;
+}
+
+// Sendet eine Textnachricht vom Client zum Server
+void send_c2s_message(int socket, const char *message) {
+    uint8_t type = 2;
+    uint16_t length = strlen(message); // <= 512 prüfen
+    if (length > 512) {
+        fprintf(stderr, "Message too long\n");
+        return;
+    }
+
+    uint8_t header[3];
+    header[0] = type;
+    header[1] = (length >> 8) & 0xFF;
+    header[2] = length & 0xFF;
+
+    send(socket, header, 3, 0);
+    send(socket, message, length, 0);
+}
+
+void handle_c2s_message(int client_fd, const char *message, size_t length) {
+    if (message[0] == '/') {
+        // Command (z.B. /pause)
+        if (strcmp(message, "/pause") == 0) {
+            broadcast_server_message("Chat wurde pausiert.");
+            chat_paused = true;
+        } else {
+            send_s2c_error(client_fd, "Unbekannter Befehl");
+        }
+    } else {
+        // Reguläre Nachricht weiterleiten
+        time_t timestamp = time(NULL);
+        const char *sender_name = get_username_by_fd(client_fd);
+        if (!sender_name) return;
+        broadcast_s2c_message(sender_name, message, timestamp);
+    }
+}
+
+void broadcast_s2c_message(const char *sender, const char *text, time_t timestamp) {
+    uint8_t type = 3;
+    uint32_t len_sender = strlen(sender) + 1; // null-terminated
+    uint16_t length = 8 + 32 + strlen(text);  // timestamp + sender + text
+    if (length > 552) length = 552;
+
+    uint8_t header[3];
+    header[0] = type;
+    header[1] = (length >> 8) & 0xFF;
+    header[2] = length & 0xFF;
+
+  	for (int i = 0; i < client_count; ++i) {
+    Client *c = &clients[i];
+        send(c->fd, header, 3, 0);
+        send_u64(c->fd, (uint64_t)timestamp);
+
+        char sender_field[32] = {0};
+        strncpy(sender_field, sender, 31);
+        send(c->fd, sender_field, 32, 0);
+
+        send(c->fd, text, strlen(text), 0);
+    }
+}
+
+void send_s2c_error(int client_fd, const char *text) {
+    uint8_t type = 3;
+    uint16_t length = 8 + 32 + strlen(text); // timestamp + sender + text
+    if (length > 552) length = 552;
+
+    uint8_t header[3];
+    header[0] = type;
+    header[1] = (length >> 8) & 0xFF;
+    header[2] = length & 0xFF;
+
+    uint64_t timestamp = (uint64_t)time(NULL);
+    char sender_field[32] = {0}; // leer, d.h. Servernachricht
+
+    send(client_fd, header, 3, 0);
+    send_u64(client_fd, timestamp);
+    send(client_fd, sender_field, 32, 0);
+    send(client_fd, text, strlen(text), 0);
 }

@@ -87,7 +87,7 @@ void sendLoginResponse(int fd, uint8_t code);
  {
 	Header header;
 	uint64_t timeStamp;
-	char originalSender[NAME_FINAL];
+	char originalSender[NAME_FINAL]; // Nullterminiert -> 32 Byte
 	char text[MSG_MAX];
 
  }Server2Client;
@@ -109,7 +109,7 @@ typedef enum
 	LEFT = 0,
 	KICKED = 1,
 	ERROR = 2
-} RemoveReson;
+} RemoveReason;
  
 typedef struct __attribute__((packed))
 {
@@ -119,6 +119,8 @@ typedef struct __attribute__((packed))
     char name[USER_NAME_MAX];  // not null-terminated
 } UserRemoved;
 
+UserRemoved createUserRemovedMessage(uint8_t code, const char* name);
+void sendUserRemoved(User *user, void *arg);
 
 
 

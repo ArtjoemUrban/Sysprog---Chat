@@ -92,22 +92,23 @@ void sendLoginResponse(int fd, uint8_t code)
 
 void sendUserAddedtoALL(User *user, void *arg) 
 {
-	size_t name_len = strlen((char *)arg);
-	if(name_len > USER_NAME_MAX)
+	const char *name = (const char *) arg;
+	size_t name_len = strnlen(name, USER_NAME_MAX); // sucht 31 bytes nach Null-Terminierung wird sie nicht gefunden wird länge USER_NAME_MAX
+	if(name_len > USER_NAME_MAX || name_len == 0)
 	{
-		errorPrint("Fehler: Name wurde laenger weiter gegeben");
+		errorPrint("Name hat ungueltige laenge: %zu", name_len);
 		return;
 	}
 
 	// erstell UAD
 	UserAdded message;
+	memset(&message, 0, sizeof(UserAdded)); // setzt erst mal alles auf 0
 	message.header.type = UAD;
 	message.header.len = htons(8 + name_len);
 	message.timestamp = htobe64((uint64_t)time(NULL)); // Aktueller Timestamp
-	memcpy(message.name, (char *) arg, name_len);
+	memcpy(message.name, name, name_len);
 
 	size_t total_len = sizeof(Header) + 8 + name_len;
-	int socket_fd = *(int *)arg; // casten von void* zu int* und dann dereferenzieren
 	ssize_t sent = send(user->sock, &message, total_len,0);
 	if(sent != (ssize_t)total_len)
 	{
@@ -131,8 +132,8 @@ void sendUserListToNewUser(User *user, void *arg)
     memset(&message, 0, sizeof(UserAdded));  // Initialisiere alles mit 0
 
     message.header.type = UAD;
-    message.header.len = htons(8 + name_len);  // Nur Timestamp (8) + Name-Länge
-    message.timestamp = 0;  // 0 → "User war schon da"
+    message.header.len = htons(8 + name_len);  // Nur Timestamp 8 Bytes + Name-Länge
+    message.timestamp = 0;  // 0 -> "User war schon da"
 
     memcpy(message.name, user->name, name_len);  // Nur gültige Bytes kopieren
 
@@ -145,7 +146,34 @@ void sendUserListToNewUser(User *user, void *arg)
     }
 }
 
+UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
+{
+	size_t name_len = strnlen(name, USER_NAME_MAX);
 
+	UserRemoved message;
+
+	message.header.type = URM;
+	message.header.len = htons(8 + name_len);
+
+	message.timestamp = hton64u((uint64_t)time(NULL));
+	message.code = code;
+
+	memcpy(message.name, name, name_len);
+	return message;
+}
+
+void sendUserRemoved(User *user, void *arg)
+{
+	UserRemoved* message = (UserRemoved*)arg;
+	
+	size_t total_len = sizeof(Header) + message->header.len;
+	ssize_t sent = send(user->sock, message, total_len, 0);
+	if(sent != 0)
+	{
+		errnoPrint("Fehler beime senden der URM Message");
+	}
+
+}
 
 
 
@@ -220,7 +248,7 @@ int networkSend(int fd, const Message *buffer)  //gibt bei erfolg 0 zurück und 
 }*/
 
 // prototyp vlt falsch
-UserRemoved create_remove_msg(const char* name, RemoveReson reson)
+UserRemoved create_remove_msg(const char* name, RemoveReason reson)
 {
 	UserRemoved msg;
 	msg.header.type = URM;

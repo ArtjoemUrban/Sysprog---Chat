@@ -13,7 +13,7 @@ int main(int argc, char **argv)
 	//TODO: evaluate command line arguments
 	if (argc > 1) {
 		port = atoi(argv[1]); // atoi converts string to integer
-		if (port <= 0 || port > 65535) // Check if port is in valid range
+		if (port <= 1023 || port > 65535) // Check if port is in valid range
 		{
 			infoPrint("Invalid port number: %s. Using default port %d.", argv[1], DEFAULT_PORT);
 			port = DEFAULT_PORT;

@@ -90,7 +90,6 @@ int connectionHandler(in_port_t port)
 
 		//pthread_t thread = clientthread(client_fd); 
 		// wird aktuell in der funktion add_user verwendet
-		
 	}
 
 	return 0;	//never reached

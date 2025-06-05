@@ -100,9 +100,9 @@ void sendLoginResponse(int fd, uint8_t code);
 	 char name[USER_NAME_MAX];  // not null-terminated
  } UserAdded;
 
-void sendUserAddedtoALL(User *user, void *arg); // User der die Nachricht erhält
+void sendUserAddedtoALL(User *user, void *arg); // User der die Nachricht erhält // arg ist ein char* auf den Namen des neuen Users
 
-void sendUserListToNewUser(User *user, void *arg);
+void sendUserListToNewUser(User *user, void *arg); // arg ist ein int* auf den socket des neuen users
 
 typedef enum 
 {

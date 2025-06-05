@@ -120,30 +120,31 @@ void sendUserListToNewUser(User *user, void *arg)
 {
     int socket_fd = *(int *)arg;
 
-    char name[USER_NAME_MAX];
-    strncpy(name, user->name, USER_NAME_MAX);
-    name[USER_NAME_MAX - 1] = '\0';
-
-    size_t name_len = strlen(name);
-    if (name_len >= USER_NAME_MAX) {
-        errorPrint("Name zu lang");
+    size_t name_len = strnlen(user->name, USER_NAME_MAX);  // sicherstellen, dass kein '\0' innerhalb der Länge auftritt
+    if (name_len == 0 || name_len > 31) {
+        errorPrint("Ungültige Länge für Usernamen: %zu", name_len);
         return;
     }
 
+    // Nachricht vorbereiten
     UserAdded message;
-    memset(&message, 0, sizeof(UserAdded));  // Verhindert uninitialisierte Bytes!
+    memset(&message, 0, sizeof(UserAdded));  // Initialisiere alles mit 0
 
     message.header.type = UAD;
-    message.header.len = htons(sizeof(Header) + sizeof(uint64_t) + name_len);
-    message.timestamp = 0;
-    memcpy(message.name, name, name_len);
+    message.header.len = htons(8 + name_len);  // Nur Timestamp (8) + Name-Länge
+    message.timestamp = 0;  // 0 → "User war schon da"
 
-    size_t total_len = sizeof(Header) + sizeof(uint64_t) + name_len;
+    memcpy(message.name, user->name, name_len);  // Nur gültige Bytes kopieren
+
+    size_t total_len = sizeof(Header) + 8 + name_len;  // Gesamtgröße der Nachricht
+
+    // Nachricht senden
     ssize_t sent = send(socket_fd, &message, total_len, 0);
     if (sent != (ssize_t)total_len) {
         errnoPrint("Konnte User: %s nicht ankündigen", user->name);
     }
 }
+
 
 
 

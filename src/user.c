@@ -38,7 +38,7 @@ User *add_user(int sock)
         return NULL;
     }
 
-    infoPrint("Neuer Benutzer erstellt");
+    infoPrint("Neuer Benutzer + Thread erstellt und LRQ wird verarbeitet");
     return newUser;
 }
 
@@ -55,6 +55,7 @@ void remove_user(User *user)
     pthread_mutex_unlock(&userLock);
     close(user->sock); // schließt socket
     free(user);
+    infoPrint("User removed");
 }
 
 void iterate_users(void (*callback)(User *, void *), void *arg)

@@ -111,21 +111,21 @@ void sendLoginResponse(int fd, uint8_t code)
 
 void sendUserAddedtoALL(User *user, void *arg) 
 {
-	size_t name_len = strlen((char *)arg);
-	if(name_len > USER_NAME_MAX)
+	const char *name = (const char *) arg;
+	size_t name_len = strnlen(name, USER_NAME_MAX); // sucht 31 bytes nach Null-Terminierung wird sie nicht gefunden wird länge USER_NAME_MAX
+	if(name_len > USER_NAME_MAX || name_len == 0)
 	{
-		errorPrint("Fehler: Name wurde laemger weiter gegeben");
+		errorPrint("Name hat ungueltige laenge: %zu", name_len);
 		return;
 	}
 
 	// erstell UAD
 	UserAdded message;
+	memset(&message, 0, sizeof(UserAdded)); // setzt erst mal alles auf 0
 	message.header.type = UAD;
 	message.header.len = htons(8 + name_len);
 	message.timestamp = htobe64((uint64_t)time(NULL)); // Aktueller Timestamp
-	//memcpy(message.name, (char *) arg, name_len);
-	size_t name_len = strnlen((char*)arg, USERNAME_RAW_MAX);
-	memcpy(message.name, (char *) arg, name_len);
+	memcpy(message.name, name, name_len);
 
 
 	size_t total_len = sizeof(Header) + 8 + name_len;
@@ -134,32 +134,65 @@ void sendUserAddedtoALL(User *user, void *arg)
 	{
 		errnoPrint("konnte UserAdded nicht versenden an %s", user->name);
 	}
+	infoPrint("UserAdded Nachricht an %s gesendet", user->name);
 }
 
 void sendUserListToNewUser(User *user, void *arg)
 {
-	char name[USER_NAME_MAX];
-	memcpy(name, user->name, strlen(user->name));
-	size_t name_len = strlen(name);
-	if(name_len > USER_NAME_MAX)
-	{
-		errorPrint("Fehler Name wurde laemger weiter gegeben");
-		return;
-	}
+    int socket_fd = *(int *)arg;
 
-	// erstell UAD
-	UserAdded message;
-	message.header.type = UAD;
+    size_t name_len = strnlen(user->name, USER_NAME_MAX);  // sicherstellen, dass kein '\0' innerhalb der Länge auftritt
+    if (name_len == 0 || name_len > 31) {
+        errorPrint("Ungültige Länge für Usernamen: %zu", name_len);
+        return;
+    }
+
+    // Nachricht vorbereiten
+    UserAdded message;
+    memset(&message, 0, sizeof(UserAdded));  // Initialisiere alles mit 0
+
+    message.header.type = UAD;
+    message.header.len = htons(8 + name_len);  // Nur Timestamp 8 Bytes + Name-Länge
+    message.timestamp = 0;  // 0 -> "User war schon da"
+
+    memcpy(message.name, user->name, name_len);  // Nur gültige Bytes kopieren
+
+    size_t total_len = sizeof(Header) + 8 + name_len;  // Gesamtgröße der Nachricht
+
+    // Nachricht senden
+    ssize_t sent = send(socket_fd, &message, total_len, 0);
+    if (sent != (ssize_t)total_len) {
+        errnoPrint("Konnte User: %s nicht ankündigen", user->name);
+    }
+}
+
+UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
+{
+	size_t name_len = strnlen(name, USER_NAME_MAX);
+
+	UserRemoved message;
+
+	message.header.type = URM;
 	message.header.len = htons(8 + name_len);
-	message.timestamp = 0; // Timestamp auf null um zu signalisiern das dieser user schon da war
-	memcpy(message.name, name, name_len);
 
-	size_t total_len = sizeof(Header) + 8 + name_len;
-	ssize_t sent = send(arg, &message, total_len,0);
-	if(sent != (ssize_t)total_len)
+	message.timestamp = hton64u((uint64_t)time(NULL));
+	message.code = code;
+
+	memcpy(message.name, name, name_len);
+	return message;
+}
+
+void sendUserRemoved(User *user, void *arg)
+{
+	UserRemoved* message = (UserRemoved*)arg;
+	
+	size_t total_len = sizeof(Header) + message->header.len;
+	ssize_t sent = send(user->sock, message, total_len, 0);
+	if(sent != 0)
 	{
-		errnoPrint("Konnte USer: %s nicht ankündigen", user->name);
+		errnoPrint("Fehler beime senden der URM Message");
 	}
+
 }
 
 

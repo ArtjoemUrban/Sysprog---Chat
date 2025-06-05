@@ -11,27 +11,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define BUFFER_SIZE 1024
-
- void broadcast(User *user, void *arg)  
-{
-	Message *msg = (Message *)arg;
-	networkSend(user->sock, msg);
-} 
-
 // Funktion für Client
 void *clientthread(void *arg)
 {
 	User *self = (User *)arg;
 
-	Message msg;
 	debugEnable();
-/// --------------------------------------------------------- Prüfung des Login Requests ------------------------------------
+	debugPrint("Client thread started.");
+ /// --------------------------------------------------------- Prüfung des Login Requests ------------------------------------
 	LoginRequest loginRequest; // eventuell speicher mit malloc() verwalten -> kein Stack over flow
 
 	if(!reciveLoginRequest(self->sock, &loginRequest))
 	{
 		debugPrint("Fehler beim Empfangen des LRQ");
+		errorPrint("LoginRequst konnte nicht Empfangen werden-> User wird entfernt");
 		remove_user(self);
 		return NULL;
 	}
@@ -74,35 +67,49 @@ void *clientthread(void *arg)
 
 	debugPrint("LoginResponse verschickt");
 
-	iterate_users(sendUserAddedtoALL,loginRequest.name); // sendet UserAdded an alle User
+	iterate_users(sendUserAddedtoALL,name_cpy); // sendet UserAdded an alle User
 	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
 
 	infoPrint("User: %s wurde erfolgreich regestriert", self->name);
 	
-// ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
-
-	debugPrint("Client thread started.");
-
-	//TODO: Receive messages and send them to all users, skip self
-
-	char buffer[BUFFER_SIZE];
+ // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
 	
-	for(;;)
+	//TODO: Receive messages and send them to all users, skip self
+	
+	for(;;) // Main Loop
 	{
-		/*if(networkReceive(self->sock, &msg) < 0)
+		int buffer;
+		ssize_t feedback = recv(self->sock, buffer, sizeof(buffer), 0); // später recive C2S
+
+		if(feedback > 0)
 		{
-			debugPrint("konnte Nachricht nicht empfangen");
+			// alles okay
+			// handle S2C
+		}
+		else if( feedback == 0)
+		{
+			// client hat Verbindung beendet
+			UserRemoved msg = createUserRemovedMessage(LEFT, self->name);
+			iterate_users(sendUserRemoved,&msg);
+			remove_user(self);
 			break;
 		}
-
-		iterate_users(broadcast, &msg);*/
-		
+		else
+		{
+			// Verbindung Abgebrochen
+			UserRemoved msg = createUserRemovedMessage(ERROR, self->name);
+			iterate_users(sendUserRemoved,&msg);
+			remove_user(self);
+			break;
+		}	
 	}
-
 	debugPrint("Client thread stopping.");
 	debugDisable();
 
-	remove_user(self);
-	// free(arg); // speicher wird in user bereits freigegeben
+	// sollte niemals erreicht werden:
+	//remove_user(self);
+	//close(self->sock);
+	//pthread_exit(NULL);
+	//free(arg); // speicher wird in user bereits freigegeben
 	return NULL;
 }

@@ -55,14 +55,14 @@ void *clientthread(void *arg)
 
 	if(isNameTaken(name_cpy))
 	{
-		debugPrint("Name ist bereits vergeben");
+		debugPrint("Name %s ist bereits vergeben", name_cpy);
 		sendLoginResponse(self->sock, NAME_TAKEN);
 		remove_user(self);
 		return NULL;
 	}
 
 	sendLoginResponse(self->sock, SUCCESS);
-	memcpy(self->name, name_cpy, NAME_FINAL); // ??? evtl mutex 
+	memcpy(self->name, name_cpy, name_len+1); // ??? evtl mutex 
 	self->name[NAME_FINAL] = '\0'; // Um die Null-Terminierung noch mal zu garantieren 
 
 	debugPrint("LoginResponse verschickt");
@@ -91,7 +91,7 @@ void *clientthread(void *arg)
 			// client hat Verbindung beendet
 			UserRemoved msg = createUserRemovedMessage(LEFT, self->name);
 			iterate_users(sendUserRemoved,&msg);
-			remove_user(self);
+			
 			break;
 		}
 		else
@@ -99,17 +99,13 @@ void *clientthread(void *arg)
 			// Verbindung Abgebrochen
 			UserRemoved msg = createUserRemovedMessage(ERROR, self->name);
 			iterate_users(sendUserRemoved,&msg);
-			remove_user(self);
 			break;
 		}	
 	}
+	remove_user(self);
 	debugPrint("Client thread stopping.");
 	debugDisable();
-
-	// sollte niemals erreicht werden:
-	//remove_user(self);
-	//close(self->sock);
-	//pthread_exit(NULL);
+	pthread_exit(NULL);
 	//free(arg); // speicher wird in user bereits freigegeben
 	return NULL;
 }

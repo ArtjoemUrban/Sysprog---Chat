@@ -10,6 +10,12 @@ static pthread_mutex_t userLock = PTHREAD_MUTEX_INITIALIZER;
 static User *userFront = NULL;
 static User *userBack = NULL;
 
+// Funktion zum debugggen
+void printUser(User *user, void *arg)
+{
+    infoPrint("Angemeldet: %s", user->name);
+}
+
 //TODO: Implement the functions declared in user.h
 User *add_user(int sock)
 {
@@ -52,10 +58,15 @@ void remove_user(User *user)
     if (user->next) user->next->prev = user->prev;
     else userBack = user->prev;
 
+    if(userFront == NULL)
+        userBack = NULL;
     pthread_mutex_unlock(&userLock);
+    
     close(user->sock); // schließt socket
+    memset(user->name, 0, sizeof(user->name));
     free(user);
     infoPrint("User removed");
+    iterate_users(printUser, NULL);
 }
 
 void iterate_users(void (*callback)(User *, void *), void *arg)
@@ -77,7 +88,7 @@ bool isNameTaken(const char* newName)
     User *current = userFront;
     while(current)
     {
-        if(strcmp(current->name, newName) == 0)
+        if(strncmp(current->name, newName,31) == 0)
         {
             pthread_mutex_unlock(&userLock);
             return true;
@@ -87,3 +98,4 @@ bool isNameTaken(const char* newName)
     pthread_mutex_unlock(&userLock);
     return false;
 }
+

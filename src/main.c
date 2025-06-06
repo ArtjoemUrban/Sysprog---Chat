@@ -1,5 +1,7 @@
 #include <stdlib.h>
+#include <getopt.h>
 #include "connectionhandler.h"
+#include <signal.h>
 #include "util.h"
 
 #define DEFAULT_PORT 8111
@@ -21,7 +23,13 @@ int main(int argc, char **argv)
 			infoPrint("Using port: %d", port);
 		}
 	}
+	else
+	{
+		infoPrint("Starting Server with default port: %d.", DEFAULT_PORT);
+	}
+	
 	//TODO: perform initialization
+	
 	
 
 	//TODO: use port specified via command line

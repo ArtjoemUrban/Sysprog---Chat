@@ -172,8 +172,8 @@ UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
 
 	UserRemoved message;
 
-	message.header.type = URM;
-	message.header.len = htons(8 + name_len);
+	message.header.type = 5;
+	message.header.len = htons(sizeof(uint64_t) + sizeof(uint8_t) + name_len);
 
 	message.timestamp = hton64u((uint64_t)time(NULL));
 	message.code = code;
@@ -184,11 +184,11 @@ UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
 
 void sendUserRemoved(User *user, void *arg)
 {
-	UserRemoved* message = (UserRemoved*)arg;
-	
-	size_t total_len = sizeof(Header) + message->header.len;
+	const UserRemoved* message = (const UserRemoved*)arg;
+	infoPrint("sending URM: type %u, code %u, ",message->header.type,message->code);
+	size_t total_len = sizeof(Header) + ntohs(message->header.len);
 	ssize_t sent = send(user->sock, message, total_len, 0);
-	if(sent != 0)
+	if(sent != (ssize_t)total_len)
 	{
 		errnoPrint("Fehler beime senden der URM Message");
 	}
@@ -199,7 +199,7 @@ void sendUserRemoved(User *user, void *arg)
 
 
 //----------------------------------Aufgabe 1 Simple Client --------------------------------------------------
-int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
+ int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
 {
 	uint16_t net_len;
 	// Receive length
@@ -267,26 +267,8 @@ int networkSend(int fd, const Message *buffer)  //gibt bei erfolg 0 zurück und 
 
 }*/
 
-// prototyp vlt falsch
-UserRemoved create_remove_msg(const char* name, RemoveReson reson, int fd)
-{
-	UserRemoved msg;
-	msg.header.type = URM;
-	msg.header.len = htons(sizeof(UserRemoved));
-	msg.timestamp = htobe64((uint64_t)time(NULL));
-	// msg.timestamp = htobe64(current_timestamp()); haben keine funktion für timestemp -> compiler fehler
-	msg.code = reson;
-	memcpy(msg.name, name,USERNAME_RAW_MAX);
-	ssize_t sent = send(fd, &msg, sizeof(UserRemoved), 0);
-if (sent != sizeof(UserRemoved)) {
-    errnoPrint("Fehler beim Senden von UserRemoved");
-}
-
-	return msg;
-}
-
 // Sendet eine Textnachricht vom Client zum Server
-void send_c2s_message(int socket, const char *message) {
+/*void send_c2s_message(int socket, const char *message) {
     uint8_t type = 2;
     uint16_t length = strlen(message); // <= 512 prüfen
     if (length > 512) {
@@ -362,4 +344,4 @@ void send_s2c_error(int client_fd, const char *text) {
     send_u64(client_fd, timestamp);
     send(client_fd, sender_field, 32, 0);
     send(client_fd, text, strlen(text), 0);
-}
+} */

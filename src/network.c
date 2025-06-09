@@ -241,6 +241,33 @@ int reciveC2S(int sock, Client2Server *msg)
 	return 1;
 }
 
+void sendS2C(User *user, void *msg)
+{
+	Server2Client *s2c = (Server2Client *)msg;
+	size_t total_len = sizeof(Header) + ntohs(s2c->header.len);
+	ssize_t sent = send(user->sock, s2c, total_len,0);
+	if(sent != total_len)
+	{
+		errorPrint("Fehler beim senden der S2C an %s", user->name);
+	}
+}
+
+void handleS2C(const char *sender, const char *text, size_t text_len)
+{
+	Server2Client msg;
+	memset(&msg, 0, sizeof(Server2Client)); // aufräumen
+
+	msg.header.type = S2C;
+	msg.timeStamp = hton64u((uint64_t)time(NULL));
+
+	strncpy(msg.originalSender, sender,NAME_FINAL); // Sender
+	memcpy(msg.text, text, text_len);
+
+	msg.header.len = sizeof(Header) + sizeof(uint64_t) + sizeof(sender) + text_len;
+
+	iterate_users(sendS2C, &msg);
+
+}
 
 /*
 // sendet S2C an alle User

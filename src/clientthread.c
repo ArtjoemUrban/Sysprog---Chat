@@ -85,7 +85,10 @@ void *clientthread(void *arg)
 			{
 				infoPrint("Command erhalten");
 				//handle Command
+			}else{
+				handleS2C(self->name, msg.text, msg.header.len);
 			}
+
 		}
 		else if( feedback == 0)
 		{

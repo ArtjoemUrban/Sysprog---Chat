@@ -263,7 +263,8 @@ void handleS2C(const char *sender, const char *text, size_t text_len)
 	strncpy(msg.originalSender, sender,NAME_FINAL); // Sender
 	memcpy(msg.text, text, text_len);
 
-	msg.header.len = sizeof(Header) + sizeof(uint64_t) + sizeof(sender) + text_len;
+	msg.header.len = htons(sizeof(Header) + sizeof(uint64_t) + NAME_FINAL + text_len);
+	
 
 	iterate_users(sendS2C, &msg);
 

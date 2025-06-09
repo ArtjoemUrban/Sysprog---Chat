@@ -9,22 +9,19 @@
 
 
 
-#define MSG_MAX 512  // Maximale Länge des Textteils gemäß RFC
-#define USERNAME_MAX 32 //inkl. nullterminiert für S2C
-#define USERNAME_RAW_MAX 31 //max. Länge von Namen ohne Null-Terminator
+ #define MSG_MAX 512  // Maximale Länge des Textteils gemäß RFC
+ #define USERNAME_MAX 32 //inkl. nullterminiert für S2C
+ #define USERNAME_RAW_MAX 31 //max. Länge von Namen ohne Null-Terminator
 
-#define SERVER_NAME "Chat"
+ #define USER_NAME_MAX 31
+ #define NAME_FINAL 32 // null terminiert
 
-/* TODO: When implementing the fully-featured network protocol (including
- * login), replace this with message structures derived from the network
- * protocol (RFC) as found in the moodle course. */
+ #define SERVER_NAME "Chat"
+ #define SNAME_MAX 31 // server name nicht null terminiert
 
  #define MAGIC 0x0badf00d
  #define VERSION 0
- #define USER_NAME_MAX 31
- #define SNAME_MAX 31 // server name nicht null terminiert
- #define NAME_FINAL 32 // null terminiert
-
+ 
  typedef enum
  {
 	LRQ = 0,    // Login Request
@@ -68,22 +65,21 @@ typedef struct  __attribute__((packed))
   Header header;
   uint32_t magic;
   uint8_t code;
-  char serverName[SNAME_MAX];
-  
+  char serverName[SNAME_MAX]; 
 } LoginResponse;
 
 void sendLoginResponse(int fd, uint8_t code);
 
- typedef struct __attribute__((packed))
+typedef struct __attribute__((packed))
  {
 	Header header;
 	char text[MSG_MAX];
-
  }Client2Server;
 
+ // -1 -> Verbindungs abbruch, 0 -> Verbindung beendet, 2 -> Fehler, 1 -> ok
+ int reciveC2S(int sock, Client2Server *msg);
 
-
- typedef struct __attribute__((packed))
+typedef struct __attribute__((packed))
  {
 	Header header;
 	uint64_t timeStamp;
@@ -136,4 +132,4 @@ typedef struct __attribute__((packed))
 int networkReceive(int fd, Message *buffer);
 int networkSend(int fd, const Message *buffer);
 
-#endif 
+#endif

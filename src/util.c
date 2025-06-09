@@ -329,7 +329,7 @@ uint64_t hton64u(uint64_t host64u)
 
 bool isValidUsername(const char *name, uint8_t len)
 {
-	if( len < 5 || len > (5 + 31)) // 5 bytes sind magic und version 31 ist max laenge vom name
+	if( len < 1 || len > (5 + 31)) // name mindestens 1 Byte 
 	{
 		debugPrint("Username zu Lang oder Kurz");
 		return false;

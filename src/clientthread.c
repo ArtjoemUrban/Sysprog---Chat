@@ -23,7 +23,6 @@ void *clientthread(void *arg)
 
 	if(!reciveLoginRequest(self->sock, &loginRequest))
 	{
-		debugPrint("Fehler beim Empfangen des LRQ");
 		errorPrint("LoginRequst konnte nicht Empfangen werden-> User wird entfernt");
 		remove_user(self);
 		return NULL;
@@ -34,20 +33,20 @@ void *clientthread(void *arg)
 	// Prüfen ob die Version stimmt
 	if(loginRequest.version != 0)
 	{
-		debugPrint("Ungültige Version des Protokolls");
+		debugPrint("Ungültige Version des Protokolls: %i", loginRequest.version);
 		sendLoginResponse(self->sock, PROTOCOL_VERSION_MISMATCH);
 		remove_user(self);
 		return NULL;
 	}
 
-	// Prüfen ob Username valide ist
+	// Prüfen ob Username valide ist (in util.c)
 	if(!isValidUsername(loginRequest.name, name_len))
 	{
-		debugPrint("Username nicht gueltig");
+		debugPrint("Username nicht zugelassen");
 		sendLoginResponse(self->sock, NAME_INVALID);
 		remove_user(self);
 		return NULL;
-	};
+	}
 	
 	char name_cpy[NAME_FINAL] ={0}; // setzt zu beginn alle bytes auf null
 	memcpy(name_cpy, loginRequest.name, name_len);
@@ -65,12 +64,11 @@ void *clientthread(void *arg)
 	memcpy(self->name, name_cpy, name_len+1); // ??? evtl mutex 
 	self->name[NAME_FINAL] = '\0'; // Um die Null-Terminierung noch mal zu garantieren 
 
-	debugPrint("LoginResponse verschickt");
 
 	iterate_users(sendUserAddedtoALL,name_cpy); // sendet UserAdded an alle User
 	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
 
-	infoPrint("User: %s wurde erfolgreich regestriert", self->name);
+	infoPrint("User: %s wurde erfolgreich hinzugefügt", self->name);
 	
  // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
 	
@@ -78,13 +76,16 @@ void *clientthread(void *arg)
 	
 	for(;;) // Main Loop
 	{
-		int buffer;
-		ssize_t feedback = recv(self->sock, buffer, sizeof(buffer), 0); // später recive C2S
+		Client2Server msg;
+		int feedback =reciveC2S(self->sock, &msg);
 
-		if(feedback > 0)
+		if(feedback ==1)
 		{
-			// alles okay
-			// handle S2C
+			if(msg.text[0] == '/')
+			{
+				infoPrint("Command erhalten");
+				//handle Command
+			}
 		}
 		else if( feedback == 0)
 		{
@@ -94,13 +95,16 @@ void *clientthread(void *arg)
 			
 			break;
 		}
-		else
+		else if(feedback == -1)
 		{
 			// Verbindung Abgebrochen
 			UserRemoved msg = createUserRemovedMessage(ERROR, self->name);
 			iterate_users(sendUserRemoved,&msg);
 			break;
-		}	
+		}else
+		{
+			debugPrint("fehler beim empfangen der C2S versuch noch mal");
+		}
 	}
 	remove_user(self);
 	debugPrint("Client thread stopping.");

@@ -21,10 +21,10 @@ typedef struct {
 Client clients[MAX_CLIENTS];
 int client_count = 0;
 
-bool reciveLoginRequest(int fd, LoginRequest * buff)
+bool reciveLoginRequest(int fd, LoginRequest * msg)
 {
 	// Header lesen
-    ssize_t received = recv(fd, &buff->header, sizeof(Header), MSG_WAITALL);
+    ssize_t received = recv(fd, &msg->header, sizeof(Header), MSG_WAITALL);
     if (received !=sizeof(Header)) {
         errnoPrint("Fehler beim empfangen des LRQ");
 		
@@ -36,35 +36,35 @@ bool reciveLoginRequest(int fd, LoginRequest * buff)
     }
 
     // Header-> Type prüfen
-    if (buff->header.type != LRQ) {
+    if (msg->header.type != LRQ) {
         debugPrint("Erste Nachricht ist kein LRQ");
         return false;
     }
 	
 	// Header-> Len prüfen
-	buff->header.len = ntohs(buff->header.len);
-	if(buff->header.len < 5 || buff->header.len > (USER_NAME_MAX +5))
+	msg->header.len = ntohs(msg->header.len);
+	if(msg->header.len < 5 || msg->header.len > (USER_NAME_MAX +5))
 	{
 		errorPrint("Ungültige länge");
 		return false;
 	}
 
     // Restliche Daten lesen 
-    received = recv(fd, ((char*)buff) + sizeof(Header), buff->header.len, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
-    if (received != buff->header.len) {
+    received = recv(fd, ((char*)msg) + sizeof(Header), msg->header.len, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
+    if (received != msg->header.len) {
         errorPrint("Restdaten haben falsche Länge");
         return false;
     }
     // Magic prüfen
-	buff->magic = ntohl(buff->magic);
-    if (buff->magic != MAGIC) {
+	msg->magic = ntohl(msg->magic);
+    if (msg->magic != MAGIC) {
         errorPrint("Falsche Magic");
         return false;
     }
     return true;
 
 	//username prüfen
-	if (buff->name[0] == '\0' || memchr(buff->name, '\0', USERNAME_RAW_MAX)) {
+	if (msg->name[0] == '\0' || memchr(msg->name, '\0', USERNAME_RAW_MAX)) {
     errorPrint("Ungültiger Username (Null-Byte oder leer)");
     return false;
 }
@@ -109,6 +109,7 @@ void sendLoginResponse(int fd, uint8_t code)
 
 };
 
+// Benachrichtigt alle User über den neuen User
 void sendUserAddedtoALL(User *user, void *arg) 
 {
 	const char *name = (const char *) arg;
@@ -137,6 +138,7 @@ void sendUserAddedtoALL(User *user, void *arg)
 	infoPrint("UserAdded Nachricht an %s gesendet", user->name);
 }
 
+// Sendet die Namen aller User an den neuen User
 void sendUserListToNewUser(User *user, void *arg)
 {
     int socket_fd = *(int *)arg;
@@ -196,94 +198,57 @@ void sendUserRemoved(User *user, void *arg)
 }
 
 
-
-
-//----------------------------------Aufgabe 1 Simple Client --------------------------------------------------
- int networkReceive(int fd, Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
+int reciveC2S(int sock, Client2Server *msg)
 {
-	uint16_t net_len;
-	// Receive length
-	ssize_t received = recv(fd, &net_len, sizeof(net_len), MSG_WAITALL);  // MSG_WAITALL -> recv() wird solange warten bis alle bytes übertragen sind
-																	      // sonst könnte recv() zu wenig bytes aus dem eingangs puffer lesen 
-																	      // ausname verbindung bricht ab
-	if(received != sizeof(net_len))
+	Header header;
+
+	ssize_t recived = recv(sock, &header, sizeof(Header),0);
+	if(recived == 0)
 	{
-		debugPrint("length field passt nicht zum protokoll ( recv returned %zd)", received);
+		return 0; // Verbindung ordentlich beendet
+	}else if (recived < 0)
+	{
+		return -1; // Verbindung abgebrochen
+	}
+	if(recived != sizeof(Header))
+	{
+		errnoPrint("konnte Nachricht vom User nicht empfangen");
+		return 2;
+	}
+	if (header.type != C2S)
+	{
+		errorPrint("Falscher Type: %u, in C2S", header.type);
+		return 2;
+	}
+	header.len = htons(header.len);
+	if(header.len > MSG_MAX)
+	{
+		errorPrint(" C2S Nachricht ist zu Lang");
+		return 2;
+	}
+	memset(msg,0,sizeof(Client2Server));
+	msg->header = header;
+
+	// empfange Bytes wie im len Feld 
+	recived = recv(sock,&msg->text, header.len,0);
+	if(recived != header.len)
+	{
+		errnoPrint("konnte Text nicht empfangen");
 		return -1;
 	}
 
-	// Convert length byte order
-	buffer->len = ntohs(net_len); // Konvertiert NetzwerkByte-Order zu Host-Byte-Order
-
-	// Validate length
-	if(buffer->len > MSG_MAX)
-	{
-		errorPrint("nachricht zu lang");
-		return -1;
-	}
-	// Receive text
-	received = recv(fd, buffer->text,buffer->len, MSG_WAITALL);  
-	if(received != buffer->len) // prüfung ob nachricht zum längenfeld passt
-	{
-		errorPrint("Nachricht hat nicht selbe laenge wie length field es vorschreibt");
-		return -1;
-	}
-
-	buffer->text[buffer->len] = '\0'; // null terminierung der Nachricht
-
-
-	return 0;
+	infoPrint("Empfangene Nachricht Type: %u Len: %u Text %20s...", msg->header.type, msg->header.len, msg->text);
+	return 1;
 }
 
-int networkSend(int fd, const Message *buffer)  //gibt bei erfolg 0 zurück und -1 bei fehler
-{
-	// Send complete message
-	if(buffer->len > MSG_MAX)  // solte passen da dies schon beim empfangen der Nachricht geprüft wird
-	{
-		errorPrint("Nachricht zu lang");
-		return -1;
-	}
 
-	// Convert length byte order
-	uint16_t msg_len = htons(buffer->len); // setzt Host-Byte-Order auf Network-Byte-Order
-
-	// -> auf big Endian da dies von TCP erwartet wird
-
-	if(send(fd,&msg_len, sizeof(msg_len),0) != sizeof(msg_len))  // sendet die länge
-	{
-		return -1;
-	}
-
-	if(send(fd, buffer->text, buffer->len, 0) != buffer->len)  // sendet nachricht
-	{
-		return -1;
-	}
-
-	return 0;
-}
-
-/*int broadcastMsg(const void* msg, size_t msgSize)
+/*
+// sendet S2C an alle User
+int broadcastMsg(const void* msg, size_t msgSize)
 {
 
-}*/
-
-// Sendet eine Textnachricht vom Client zum Server
-/*void send_c2s_message(int socket, const char *message) {
-    uint8_t type = 2;
-    uint16_t length = strlen(message); // <= 512 prüfen
-    if (length > 512) {
-        fprintf(stderr, "Message too long\n");
-        return;
-    }
-
-    uint8_t header[3];
-    header[0] = type;
-    header[1] = (length >> 8) & 0xFF;
-    header[2] = length & 0xFF;
-
-    send(socket, header, 3, 0);
-    send(socket, message, length, 0);
 }
+
 
 void handle_c2s_message(int client_fd, const char *message, size_t length) {
     if (message[0] == '/') {
@@ -344,4 +309,5 @@ void send_s2c_error(int client_fd, const char *text) {
     send_u64(client_fd, timestamp);
     send(client_fd, sender_field, 32, 0);
     send(client_fd, text, strlen(text), 0);
-} */
+}
+	*/

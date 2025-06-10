@@ -44,9 +44,29 @@ int broadcastAgentInit(void)
 		returm -1;
 	}
 	//TODO: create message queue
+	// Struct für Kapazität der Queue
+	struct mq_attr attr = 
+	{
+        .mq_flags = 0,
+        .mq_maxmsg = 10,
+        .mq_msgsize = sizeof(BroadcastMessage),
+        .mq_curmsgs = 0
+    };
+
+	messageQueue = mq_open("/broadcast_queue", O_CREAT | O_RDWR, 0644, &attr); // Message Queue wird erzeugt 
+    if (messageQueue == (mqd_t)-1) {
+        errnoPrint("mq_open");
+        return -1;
+    }
 
 	//TODO: start thread
-	return -1;
+	if (pthread_create(&threadId, NULL, broadcastAgent, NULL) != 0) {
+        errnoPrint("pthread_create");
+        mq_close(messageQueue);
+        mq_unlink("/broadcast_queue");
+        return -1;
+    }
+	return 0;
 }
 
 void broadcastAgentCleanup(void)

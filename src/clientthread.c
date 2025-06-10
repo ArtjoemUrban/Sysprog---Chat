@@ -73,8 +73,8 @@ void *clientthread(void *arg)
  // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
 	
 	//TODO: Receive messages and send them to all users, skip self
-	
-	for(;;) // Main Loop
+	// Main Loop
+	for(;;) 
 	{
 		Client2Server msg;
 		int feedback =reciveC2S(self->sock, &msg);
@@ -87,6 +87,10 @@ void *clientthread(void *arg)
 				//handle Command
 			}else{
 				handleS2C(self->name, msg.text, msg.header.len);
+
+				// TODO: an Broadcastagent queue senden
+
+
 			}
 
 		}

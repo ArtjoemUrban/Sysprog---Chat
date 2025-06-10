@@ -3,6 +3,7 @@
 #include "connectionhandler.h"
 #include <signal.h>
 #include "util.h"
+#include "broadcastagent.h"
 
 #define DEFAULT_PORT 8111
 
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
 
 	//TODO: use port specified via command line
 	const int result = connectionHandler((in_port_t)port);
+	const int broadcast = broadcastAgentInit();
 
 	//TODO: perform cleanup, if required by your implementation
 	return result != -1 ? EXIT_SUCCESS : EXIT_FAILURE;

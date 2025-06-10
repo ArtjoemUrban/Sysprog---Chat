@@ -14,7 +14,7 @@ bool chat_paused = false;
 
 typedef struct {
     int fd;
-    char name[USER_NAME_MAX];
+    char name[USERNAME_RAW_MAX];
 } Client;
 
 #define MAX_CLIENTS 100
@@ -43,7 +43,7 @@ bool reciveLoginRequest(int fd, LoginRequest * msg)
 	
 	// Header-> Len prüfen
 	msg->header.len = ntohs(msg->header.len);
-	if(msg->header.len < 5 || msg->header.len > (USER_NAME_MAX +5))
+	if(msg->header.len < 5 || msg->header.len > (USERNAME_RAW_MAX +5))
 	{
 		errorPrint("Ungültige länge");
 		return false;
@@ -113,8 +113,8 @@ void sendLoginResponse(int fd, uint8_t code)
 void sendUserAddedtoALL(User *user, void *arg) 
 {
 	const char *name = (const char *) arg;
-	size_t name_len = strnlen(name, USER_NAME_MAX); // sucht 31 bytes nach Null-Terminierung wird sie nicht gefunden wird länge USER_NAME_MAX
-	if(name_len > USER_NAME_MAX || name_len == 0)
+	size_t name_len = strnlen(name, USERNAME_RAW_MAX); // sucht 31 bytes nach Null-Terminierung wird sie nicht gefunden wird länge USER_NAME_MAX
+	if(name_len > USERNAME_RAW_MAX || name_len == 0)
 	{
 		errorPrint("Name hat ungueltige laenge: %zu", name_len);
 		return;
@@ -142,13 +142,11 @@ void sendUserAddedtoALL(User *user, void *arg)
 void sendUserListToNewUser(User *user, void *arg)
 {
     int socket_fd = *(int *)arg;
-
-    size_t name_len = strnlen(user->name, USER_NAME_MAX);  // sicherstellen, dass kein '\0' innerhalb der Länge auftritt
+    size_t name_len = strnlen(user->name, USERNAME_RAW_MAX);  // sicherstellen, dass kein '\0' innerhalb der Länge auftritt
     if (name_len == 0 || name_len > 31) {
         errorPrint("Ungültige Länge für Usernamen: %zu", name_len);
         return;
     }
-
     // Nachricht vorbereiten
     UserAdded message;
     memset(&message, 0, sizeof(UserAdded));  // Initialisiere alles mit 0
@@ -170,20 +168,17 @@ void sendUserListToNewUser(User *user, void *arg)
 
 UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
 {
-	size_t name_len = strnlen(name, USER_NAME_MAX);
-
+	size_t name_len = strnlen(name, USERNAME_RAW_MAX);
 	UserRemoved message;
-
 	message.header.type = 5;
-	message.header.len = htons(sizeof(uint64_t) + sizeof(uint8_t) + name_len);
 
+	message.header.len = htons(sizeof(uint64_t) + sizeof(uint8_t) + name_len);
 	message.timestamp = hton64u((uint64_t)time(NULL));
 	message.code = code;
 
 	memcpy(message.name, name, name_len);
 	return message;
 }
-
 void sendUserRemoved(User *user, void *arg)
 {
 	const UserRemoved* message = (const UserRemoved*)arg;
@@ -194,7 +189,6 @@ void sendUserRemoved(User *user, void *arg)
 	{
 		errnoPrint("Fehler beime senden der URM Message");
 	}
-
 }
 
 
@@ -226,7 +220,7 @@ int reciveC2S(int sock, Client2Server *msg)
 		errorPrint(" C2S Nachricht ist zu Lang");
 		return 2;
 	}
-	memset(msg,0,sizeof(Client2Server));
+	memset(msg,0,sizeof(Client2Server)); // aufräumen
 	msg->header = header;
 
 	// empfange Bytes wie im len Feld 
@@ -245,6 +239,10 @@ void sendS2C(User *user, void *msg)
 {
 	Server2Client *s2c = (Server2Client *)msg;
 	size_t total_len = sizeof(Header) + ntohs(s2c->header.len);
+	if( total_len > 555)
+	{
+		errorPrint("Nachricht ist zu lang zum Versenden");
+	}
 	ssize_t sent = send(user->sock, s2c, total_len,0);
 	if(sent != total_len)
 	{
@@ -260,24 +258,18 @@ void handleS2C(const char *sender, const char *text, size_t text_len)
 	msg.header.type = S2C;
 	msg.timeStamp = hton64u((uint64_t)time(NULL));
 
-	strncpy(msg.originalSender, sender,NAME_FINAL); // Sender
+	strncpy(msg.originalSender, sender,USERNAME_MAX); // Sender
 	memcpy(msg.text, text, text_len);
 
-	msg.header.len = htons(sizeof(Header) + sizeof(uint64_t) + NAME_FINAL + text_len);
+	msg.header.len = htons(sizeof(uint64_t) + USERNAME_MAX + text_len);
+
 	
-
+	
 	iterate_users(sendS2C, &msg);
-
 }
+
 
 /*
-// sendet S2C an alle User
-int broadcastMsg(const void* msg, size_t msgSize)
-{
-
-}
-
-
 void handle_c2s_message(int client_fd, const char *message, size_t length) {
     if (message[0] == '/') {
         // Command (z.B. /pause)
@@ -295,7 +287,9 @@ void handle_c2s_message(int client_fd, const char *message, size_t length) {
         broadcast_s2c_message(sender_name, message, timestamp);
     }
 }
-
+*/
+/*
+// server an alle User -> pause
 void broadcast_s2c_message(const char *sender, const char *text, time_t timestamp) {
     uint8_t type = 3;
     uint32_t len_sender = strlen(sender) + 1; // null-terminated
@@ -320,6 +314,7 @@ void broadcast_s2c_message(const char *sender, const char *text, time_t timestam
     }
 }
 
+// server an einzelnen client
 void send_s2c_error(int client_fd, const char *text) {
     uint8_t type = 3;
     uint16_t length = 8 + 32 + strlen(text); // timestamp + sender + text

@@ -48,7 +48,7 @@ void *clientthread(void *arg)
 		return NULL;
 	}
 	
-	char name_cpy[NAME_FINAL] ={0}; // setzt zu beginn alle bytes auf null
+	char name_cpy[USERNAME_MAX] ={0}; // setzt zu beginn alle bytes auf null
 	memcpy(name_cpy, loginRequest.name, name_len);
 	name_cpy[name_len] = '\0'; // Null termenierung anhaengen
 
@@ -62,7 +62,7 @@ void *clientthread(void *arg)
 
 	sendLoginResponse(self->sock, SUCCESS);
 	memcpy(self->name, name_cpy, name_len+1); // ??? evtl mutex 
-	self->name[NAME_FINAL] = '\0'; // Um die Null-Terminierung noch mal zu garantieren 
+	self->name[USERNAME_MAX] = '\0'; // Um die Null-Terminierung noch mal zu garantieren 
 
 
 	iterate_users(sendUserAddedtoALL,name_cpy); // sendet UserAdded an alle User

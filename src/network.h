@@ -13,9 +13,6 @@
  #define USERNAME_MAX 32 //inkl. nullterminiert für S2C
  #define USERNAME_RAW_MAX 31 //max. Länge von Namen ohne Null-Terminator
 
- #define USER_NAME_MAX 31
- #define NAME_FINAL 32 // null terminiert
-
  #define SERVER_NAME "Chat"
  #define SNAME_MAX 31 // server name nicht null terminiert
 
@@ -46,7 +43,7 @@
    Header header;
    uint32_t magic;
    uint8_t version; // ist zurzeit 0
-   char name[USER_NAME_MAX]; // !!! wird nicht nullterminiert daher 31 byte
+   char name[USERNAME_RAW_MAX]; // !!! wird nicht nullterminiert daher 31 byte
  } LoginRequest;
 
  bool reciveLoginRequest(int fd, LoginRequest *buff);
@@ -83,7 +80,7 @@ typedef struct __attribute__((packed))
  {
 	Header header;
 	uint64_t timeStamp;
-	char originalSender[NAME_FINAL]; // Nullterminiert -> 32 Byte
+	char originalSender[USERNAME_MAX]; // Nullterminiert -> 32 Byte (muss 32Byte sein)
 	char text[MSG_MAX];
 
  }Server2Client;
@@ -94,7 +91,7 @@ typedef struct __attribute__((packed))
  {
 	 Header header;
 	 uint64_t timestamp;
-	 char name[USER_NAME_MAX];  // not null-terminated
+	 char name[USERNAME_RAW_MAX];  // not null-terminated
  } UserAdded;
 
 void sendUserAddedtoALL(User *user, void *arg); // User der die Nachricht erhält // arg ist ein char* auf den Namen des neuen Users
@@ -113,7 +110,7 @@ typedef struct __attribute__((packed))
     Header header;
     uint64_t timestamp;
     uint8_t code;  // 0: left, 1: kicked, 2: error
-    char name[USER_NAME_MAX];  // not null-terminated
+    char name[USERNAME_RAW_MAX];  // not null-terminated
 } UserRemoved;
 
 UserRemoved createUserRemovedMessage(uint8_t code, const char* name);

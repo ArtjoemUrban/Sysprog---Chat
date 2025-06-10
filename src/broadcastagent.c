@@ -9,8 +9,9 @@
 
 static mqd_t messageQueue;
 static pthread_t threadId;
-static sem_t pauseResumeSemaphore;
+static sem_t pauseResumeSemaphore; // modul global
 
+//broadcast thread
 static void *broadcastAgent(void *arg)
 {
 	Server2Client msg;
@@ -37,7 +38,11 @@ static void *broadcastAgent(void *arg)
 
 int broadcastAgentInit(void)
 {
-	sem_init(&pauseResumeSemaphore,0,1);
+	if(sem_init(&pauseResumeSemaphore,0,1) != 0) // 0: wird nicht von Prozessen geteilt,  1: ist start wert
+	{
+		errnoPrint("konnte keinen semaphore erzeugen");
+		returm -1;
+	}
 	//TODO: create message queue
 
 	//TODO: start thread
@@ -52,14 +57,18 @@ void broadcastAgentCleanup(void)
 	//TODO: destroy message queue
 	mq_close(messageQueue);
 	mq_unlink("/broadcast_queue"); // von oben
+
+	sem_destroy(&pauseResumeSemaphore); // semaphore zersören
 }
 
 void broadcastAgentPause(void)
 {
+	infoPrint("Chat wird Pausiert");
 	sem_wait(&pauseResumeSemaphore);
 	
 }
 void broadcastAgentResume(void)
 {
+	infoPrint("Chat wird fortgeführt");
 	sem_post(&pauseResumeSemaphore);
 }

@@ -250,6 +250,19 @@ void sendS2C(User *user, void *msg)
 	}
 }
 
+void createS2CMessage(Server2Client *msg, const char *sender, const char *text, size_t text_len)
+{
+	memset(msg, 0, sizeof(Server2Client)); // aufräumen
+
+	msg->header.type = S2C;
+	msg->timeStamp = hton64u((uint64_t)time(NULL));
+
+	strncpy(msg->originalSender, sender, USERNAME_MAX); // Sender
+	memcpy(msg->text, text, text_len);
+
+	msg->header.len = htons(sizeof(uint64_t) + USERNAME_MAX + text_len);
+}
+
 void handleS2C(const char *sender, const char *text, size_t text_len)
 {
 	Server2Client msg;

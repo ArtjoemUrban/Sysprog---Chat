@@ -23,7 +23,7 @@ static void *broadcastAgent(void *arg)
 		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(S2C), NULL);
 		if(recv >= 0)
 		{
-			sem_post(&pauseResumeSemaphore);
+			// sem_post(&pauseResumeSemaphore);
 			infoPrint("MessageQueue hat nachricht erhalten");
 
 			iterate_users(sendS2C, &msg);
@@ -41,7 +41,7 @@ int broadcastAgentInit(void)
 	if(sem_init(&pauseResumeSemaphore,0,1) != 0) // 0: wird nicht von Prozessen geteilt,  1: ist start wert
 	{
 		errnoPrint("konnte keinen semaphore erzeugen");
-		returm -1;
+		return -1;
 	}
 	//TODO: create message queue
 	// Struct für Kapazität der Queue
@@ -49,7 +49,7 @@ int broadcastAgentInit(void)
 	{
         .mq_flags = 0,
         .mq_maxmsg = 10,
-        .mq_msgsize = sizeof(BroadcastMessage),
+        .mq_msgsize = sizeof(Server2Client), // Größe der Nachricht
         .mq_curmsgs = 0
     };
 
@@ -71,14 +71,16 @@ int broadcastAgentInit(void)
 
 void broadcastAgentCleanup(void)
 {
-	//TODO: stop thread
 	pthread_cancel(threadId);
 	pthread_join(threadId,NULL);
-	//TODO: destroy message queue
+	
 	mq_close(messageQueue);
 	mq_unlink("/broadcast_queue"); // von oben
 
-	sem_destroy(&pauseResumeSemaphore); // semaphore zersören
+
+
+	sem_destroy(&pauseResumeSemaphore);
+	infoPrint("Broadcast agent cleanup completed");
 }
 
 void broadcastAgentPause(void)

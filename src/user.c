@@ -64,6 +64,8 @@ void remove_user(User *user)
     
     close(user->sock); // schließt socket
     memset(user->name, 0, sizeof(user->name));
+    pthread_cancel(user->thread); // beendet den Thread
+    pthread_join(user->thread, NULL); // wartet auf Thread-Beendigung
     free(user);
     infoPrint("User removed");
     iterate_users(printUser, NULL);
@@ -97,5 +99,25 @@ bool isNameTaken(const char* newName)
     }
     pthread_mutex_unlock(&userLock);
     return false;
+}
+
+// Zerstört die gesamte User-Liste und gibt alle Ressourcen frei
+void destroyUserList()
+{
+    pthread_mutex_lock(&userLock);
+    User *current = userFront;
+    while (current) 
+    {
+        User *next = current->next;
+        close(current->sock); // schließt socket
+        pthread_cancel(current->thread); // beendet den Thread
+        pthread_join(current->thread, NULL); // wartet auf Thread-Beendigung
+        free(current);
+        current = next;
+    }
+    userFront = userBack = NULL;
+    pthread_mutex_unlock(&userLock);
+    pthread_mutex_destroy(&userLock); // Mutex zerstören
+    infoPrint("User list destroyed");
 }
 

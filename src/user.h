@@ -33,4 +33,7 @@ void iterate_users(void (*callback)(User *user, void *arg), void *arg);
 
 // Prüfe ob Username bereits vorhanden
 bool isNameTaken(const char* newName);
+
+void destroyUserList();
+
 #endif

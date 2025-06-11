@@ -2,6 +2,7 @@
 #include "clientthread.h"
 #include "user.h"
 #include "util.h"
+#include "broadcastagent.h"
 
 #include <arpa/inet.h>
 #include <endian.h>
@@ -10,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <mqueue.h>
 
 // Funktion für Client
 void *clientthread(void *arg)
@@ -76,21 +78,32 @@ void *clientthread(void *arg)
 	// Main Loop
 	for(;;) 
 	{
-		Client2Server msg;
-		int feedback =reciveC2S(self->sock, &msg);
+		Client2Server msg_c2s;
+		int feedback =reciveC2S(self->sock, &msg_c2s);
 
 		if(feedback ==1)
 		{
-			if(msg.text[0] == '/')
+			if(msg_c2s.text[0] == '/')
 			{
 				infoPrint("Command erhalten");
 				//handle Command
 			}else{
-				handleS2C(self->name, msg.text, msg.header.len);
+				Server2Client msg_s2c;
+				createS2CMessage(&msg_s2c, self->name, msg_c2s.text, msg_c2s.header.len);
+				// handleS2C(self->name, msg_c2s.text, msg_c2s.header.len);
 
 				// TODO: an Broadcastagent queue senden
-
-
+				mqd_t messageQueue = mq_open("/broadcast_queue", O_WRONLY);
+				if (messageQueue == (mqd_t)-1) {
+					errnoPrint("Fehler beim Öffnen der Message Queue");
+					continue;	
+				}
+				// Sende die Nachricht an die Message Queue
+				if(mq_send(messageQueue, (const char*)&msg_s2c, sizeof(Server2Client), 0) == -1)
+				{
+					errnoPrint("Fehler beim Senden der Nachricht an die Message Queue");
+				}
+				mq_close(messageQueue); // schließt die Message Queue
 			}
 
 		}
@@ -114,7 +127,7 @@ void *clientthread(void *arg)
 		}
 	}
 	remove_user(self);
-	debugPrint("Client thread stopping.");
+	debugPrint("Client thread stopping it self.");
 	debugDisable();
 	pthread_exit(NULL);
 	//free(arg); // speicher wird in user bereits freigegeben

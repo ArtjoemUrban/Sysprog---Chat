@@ -15,7 +15,6 @@
 static int createPassiveSocket(in_port_t port)
 {
 	int fd = -1;
-	//TODO: socket()
 	fd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET = IPv4, SOCKE_STREAM = TCP, 0 = Protokoll (üblicherweise)
 	if (fd == -1) 
 	{
@@ -27,10 +26,9 @@ static int createPassiveSocket(in_port_t port)
 	memset(&s_addr, 0, sizeof(s_addr));
 	s_addr.sin_family = AF_INET;  // IPv4
 	s_addr.sin_addr.s_addr = INADDR_ANY; // akzeptiert verbindungen auf allen interfaces
-	s_addr.sin_port = htons(port);  // gegebener Port bsp(htons(80) = Http)
+	s_addr.sin_port = htons(port);  // setzt den Port, htons() wandelt die Byte-Reihenfolge um
 	
-	
-	//TODO: bind() to port
+	// Bindet den Socket an die Adresse
 	if (bind(fd,(struct sockaddr*)&s_addr, sizeof(s_addr)) == -1)  // s_addr muss mit dem socket fd kommpatibel sein
 	{
 		close(fd); 
@@ -38,7 +36,7 @@ static int createPassiveSocket(in_port_t port)
 		return -1;
 	};
 
-	//TODO: listen()
+	// Markiert den Socket als passiven Socket, der auf eingehende Verbindungen wartet
 	if (listen(fd, 4) == -1) // SOMAXCONN kann als zweiter parameter für Warteschlange verwendet werden
 	{
 		close(fd);
@@ -70,7 +68,7 @@ int connectionHandler(in_port_t port)
 			continue;
 		}
 
-		//TODO: accept() incoming connection
+		// Akzeptiert eine eingehende Verbindung
 		*client_fd= accept(fd, (struct sockaddr*)&client_addr, &client_len);
 		if ( *client_fd == -1)
 		{
@@ -79,7 +77,7 @@ int connectionHandler(in_port_t port)
 			continue;
 		}
 
-		//TODO: add connection to user list and start client thread
+		// Erzeugt einen neuen User, welcher den Client-Thread startet
 		if(add_user(*client_fd) == NULL)
 		{
 			errnoPrint("Konnte keinen User erzeugen");
@@ -87,10 +85,9 @@ int connectionHandler(in_port_t port)
 			free(client_fd);
 			continue;
 		};
-
-		//pthread_t thread = clientthread(client_fd); 
-		// wird aktuell in der funktion add_user verwendet
 	}
 
 	return 0;	//never reached
 }
+
+

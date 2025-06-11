@@ -20,10 +20,10 @@ static void *broadcastAgent(void *arg)
 	{
 		sem_wait(&pauseResumeSemaphore);
 
-		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(S2C), NULL);
+		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(Server2Client), NULL);
 		if(recv >= 0)
 		{
-			// sem_post(&pauseResumeSemaphore);
+			 sem_post(&pauseResumeSemaphore);
 			infoPrint("MessageQueue hat nachricht erhalten");
 
 			iterate_users(sendS2C, &msg);
@@ -66,6 +66,8 @@ int broadcastAgentInit(void)
         mq_unlink("/broadcast_queue");
         return -1;
     }
+
+	infoPrint("Broadcast agent initialized successfully");
 	return 0;
 }
 

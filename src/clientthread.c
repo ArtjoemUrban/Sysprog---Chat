@@ -88,9 +88,10 @@ void *clientthread(void *arg)
 				infoPrint("Command erhalten");
 				//handle Command
 			}else{
+				infoPrint("Text erhalten: %s", msg_c2s.text);
 				Server2Client msg_s2c;
 				createS2CMessage(&msg_s2c, self->name, msg_c2s.text, msg_c2s.header.len);
-				// handleS2C(self->name, msg_c2s.text, msg_c2s.header.len);
+				 //handleS2C(self->name, msg_c2s.text, msg_c2s.header.len);
 
 				// TODO: an Broadcastagent queue senden
 				mqd_t messageQueue = mq_open("/broadcast_queue", O_WRONLY);

@@ -43,17 +43,17 @@ int main(int argc, char **argv)
 	}
 	
 	//TODO: perform initialization
-	
-	
-
-	//TODO: use port specified via command line
-	const int result = connectionHandler((in_port_t)port);
 	const int broadcast = broadcastAgentInit();
 	if( broadcast != 0)
 	{
 		errorPrint("Broadcast agent initialization failed");
 		return EXIT_FAILURE; 
 	}
+	
+
+	//TODO: use port specified via command line
+	const int result = connectionHandler((in_port_t)port);
+	
 
 	//TODO: perform cleanup, if required by your implementation
 	return result != -1 ? EXIT_SUCCESS : EXIT_FAILURE; // Return success if connectionHandler was successful, otherwise failure

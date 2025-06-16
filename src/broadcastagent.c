@@ -6,31 +6,39 @@
 #include "network.h"
 #include "user.h"
 
+#define BROADCAST_QUEUE_NAME "/broadcast_queue"
 
 static mqd_t messageQueue;
 static pthread_t threadId;
 static sem_t pauseResumeSemaphore; // modul global
+
+static volatile bool isRunning = true;
+static bool isInitialized = false;
 
 //broadcast thread
 static void *broadcastAgent(void *arg)
 {
 	Server2Client msg;
 	//TODO: Implement thread function for the broadcast agent here!
-	for(;;)
+	while(isRunning) // solange der Thread läuft
 	{
+		if(!isRunning)
+		{
+			infoPrint("Broadcast agent is stopping");
+			break;
+		}
+		infoPrint("Warte auf Nachricht in der MessageQueue");
 		sem_wait(&pauseResumeSemaphore);
 
 		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(Server2Client), NULL);
 		if(recv >= 0)
 		{
 			 sem_post(&pauseResumeSemaphore);
-			infoPrint("MessageQueue hat nachricht erhalten");
+			infoPrint("MessageQueue hat nachricht erhalten.");
 
 			iterate_users(sendS2C, &msg);
-			infoPrint("Nachricht wurde an alle verschickt");
-
 		}else{
-			errnoPrint("MessageQueue konnte nachricht nicht empfangen");
+			errnoPrint("MessageQueue konnte nachricht nicht empfangen: ");
 		}
 	}
 	return arg;
@@ -38,9 +46,14 @@ static void *broadcastAgent(void *arg)
 
 int broadcastAgentInit(void)
 {
+	if(isInitialized) // falls der Agent bereits initialisiert wurde
+	{
+		infoPrint("Broadcast agent is already initialized.");
+		return 0;
+	}
 	if(sem_init(&pauseResumeSemaphore,0,1) != 0) // 0: wird nicht von Prozessen geteilt,  1: ist start wert
 	{
-		errnoPrint("konnte keinen semaphore erzeugen");
+		errnoPrint("Broadcast agent: konnte keinen semaphore erzeugen!!!");
 		return -1;
 	}
 	//TODO: create message queue
@@ -53,7 +66,7 @@ int broadcastAgentInit(void)
         .mq_curmsgs = 0
     };
 
-	messageQueue = mq_open("/broadcast_queue", O_CREAT | O_RDWR, 0644, &attr); // Message Queue wird erzeugt 
+	messageQueue = mq_open(BROADCAST_QUEUE_NAME, O_CREAT | O_RDWR, 0644, &attr); // Message Queue wird erzeugt 
     if (messageQueue == (mqd_t)-1) {
         errnoPrint("mq_open");
         return -1;
@@ -63,36 +76,38 @@ int broadcastAgentInit(void)
 	if (pthread_create(&threadId, NULL, broadcastAgent, NULL) != 0) {
         errnoPrint("pthread_create");
         mq_close(messageQueue);
-        mq_unlink("/broadcast_queue");
+        mq_unlink(BROADCAST_QUEUE_NAME); // Message Queue wird gelöscht
         return -1;
     }
 
-	infoPrint("Broadcast agent initialized successfully");
+	infoPrint("Broadcast agent initialized successfully.");
+	isInitialized = true; // Initialisierung erfolgreich
 	return 0;
 }
 
 void broadcastAgentCleanup(void)
 {
-	pthread_cancel(threadId);
+	isRunning = false; // Thread beenden
+	sem_post(&pauseResumeSemaphore); // falls der Thread auf eine Nachricht wartet
 	pthread_join(threadId,NULL);
 	
 	mq_close(messageQueue);
-	mq_unlink("/broadcast_queue"); // von oben
+	mq_unlink(BROADCAST_QUEUE_NAME); // von oben
 
 
 
 	sem_destroy(&pauseResumeSemaphore);
-	infoPrint("Broadcast agent cleanup completed");
+	infoPrint("Broadcast agent cleanup completed.");
 }
 
 void broadcastAgentPause(void)
 {
-	infoPrint("Chat wird Pausiert");
+	infoPrint("Chat wird Pausiert.");
 	sem_wait(&pauseResumeSemaphore);
 	
 }
 void broadcastAgentResume(void)
 {
-	infoPrint("Chat wird fortgeführt");
+	infoPrint("Chat wird fortgeführt.");
 	sem_post(&pauseResumeSemaphore);
 }

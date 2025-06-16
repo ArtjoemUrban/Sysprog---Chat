@@ -35,7 +35,7 @@ void *clientthread(void *arg)
 	// Prüfen ob die Version stimmt
 	if(loginRequest.version != 0)
 	{
-		debugPrint("Ungültige Version des Protokolls: %i", loginRequest.version);
+		errorPrint("Ungültige Version des Protokolls: %i", loginRequest.version);
 		sendLoginResponse(self->sock, PROTOCOL_VERSION_MISMATCH);
 		remove_user(self);
 		return NULL;
@@ -56,7 +56,7 @@ void *clientthread(void *arg)
 
 	if(isNameTaken(name_cpy))
 	{
-		debugPrint("Name %s ist bereits vergeben", name_cpy);
+		errorPrint("Name %s ist bereits vergeben", name_cpy);
 		sendLoginResponse(self->sock, NAME_TAKEN);
 		remove_user(self);
 		return NULL;
@@ -71,6 +71,7 @@ void *clientthread(void *arg)
 	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
 
 	infoPrint("User: %s wurde erfolgreich hinzugefügt", self->name);
+	infoPrint("-------------------------------------------------------------");
 	
  // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
 	
@@ -78,7 +79,7 @@ void *clientthread(void *arg)
 	// Main Loop
 	for(;;) 
 	{
-		Client2Server msg_c2s;
+		Client2Server msg_c2s; 
 		int feedback =reciveC2S(self->sock, &msg_c2s);
 
 		if(feedback ==1)
@@ -88,12 +89,10 @@ void *clientthread(void *arg)
 				infoPrint("Command erhalten");
 				//handle Command
 			}else{
-				infoPrint("Text erhalten: %s", msg_c2s.text);
+				//infoPrint("Text erhalten: %s", msg_c2s.text);
 				Server2Client msg_s2c;
 				createS2CMessage(&msg_s2c, self->name, msg_c2s.text, msg_c2s.header.len);
-				 //handleS2C(self->name, msg_c2s.text, msg_c2s.header.len);
 
-				// TODO: an Broadcastagent queue senden
 				mqd_t messageQueue = mq_open("/broadcast_queue", O_WRONLY);
 				if (messageQueue == (mqd_t)-1) {
 					errnoPrint("Fehler beim Öffnen der Message Queue");

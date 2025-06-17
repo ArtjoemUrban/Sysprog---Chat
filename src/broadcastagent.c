@@ -89,6 +89,7 @@ void broadcastAgentCleanup(void)
 {
 	isRunning = false; // Thread beenden
 	sem_post(&pauseResumeSemaphore); // falls der Thread auf eine Nachricht wartet
+	pthread_cancel(threadId); // Thread beenden
 	pthread_join(threadId,NULL);
 	
 	mq_close(messageQueue);

@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <unistd.h> // cloes()
+#include <unistd.h> // close()
 #include <netinet/in.h> // sockaddr_in : vereinfacht die erzeugung von sockets
 #include <pthread.h> // threads erzeugen
 #include <string.h>
@@ -11,6 +11,16 @@
 #include "clientthread.h" // wird benötigt um Client thread zu erzeugen
 #include "user.h" // benötigt zum erstellen eines Users
 
+static int serverSocket = -1;
+static volatile int exitFlag = 0; 
+
+void closeServerSocket(void)
+{
+	close(serverSocket);
+	infoPrint("Server socket closed.");
+	exitFlag = 1; 
+	
+}
 
 static int createPassiveSocket(in_port_t port)
 {
@@ -47,47 +57,48 @@ static int createPassiveSocket(in_port_t port)
 	return fd;
 }
 
-int connectionHandler(in_port_t port)
+void *connectionHandler(void *arg)
 {
-	const int fd = createPassiveSocket(port);
-	if(fd == -1)
-	{
-		errnoPrint("Unable to create server socket.");
-		return -1;
-	}
+    in_port_t port = (in_port_t)(intptr_t)arg;
+    const int fd = createPassiveSocket(port);
+    if (fd == -1) {
+        errnoPrint("Unable to create server socket.");
+        return NULL;
+    }
+    serverSocket = fd; // Speichert den Socket in der globalen Variable
 
-	for(;;) // endlosschleife
-	{
-		struct sockaddr_in client_addr; // erstellt address struct für client
-		socklen_t client_len = sizeof(client_addr);
+    while (exitFlag == 0) {
+        struct sockaddr_in client_addr;
+        socklen_t client_len = sizeof(client_addr);
 
-		int* client_fd = malloc(sizeof(int)); // speicher für jeden Thread reservieren , gespeichert wird
-		if ( client_fd == 0)
-		{
-			errnoPrint("Memmory allocation failed");
-			continue;
-		}
+        int* client_fd = malloc(sizeof(int));
+        if (client_fd == NULL) {
+            errnoPrint("Memory allocation failed");
+            continue;
+        }
 
-		// Akzeptiert eine eingehende Verbindung
-		*client_fd= accept(fd, (struct sockaddr*)&client_addr, &client_len);
-		if ( *client_fd == -1)
-		{
-			errnoPrint("Could not accept Client Connection");
-			free(client_fd);
-			continue;
-		}
+        *client_fd = accept(fd, (struct sockaddr*)&client_addr, &client_len);
+        if (*client_fd == -1) {
+            if (exitFlag != 0) {
+                // Schleife wurde durch Signal unterbrochen
+                free(client_fd);
+                break;
+            }
+            errnoPrint("Could not accept Client Connection");
+            free(client_fd);
+            continue;
+        }
 
-		// Erzeugt einen neuen User, welcher den Client-Thread startet
-		if(add_user(*client_fd) == NULL)
-		{
-			errnoPrint("Konnte keinen User erzeugen");
-			close(*client_fd);
-			free(client_fd);
-			continue;
-		};
-	}
+        if (add_user(*client_fd) == NULL) {
+            errnoPrint("Konnte keinen User erzeugen");
+            close(*client_fd);
+            free(client_fd);
+            continue;
+        }
+    }
 
-	return 0;	//never reached
+    close(fd);
+    return NULL;
 }
 
 

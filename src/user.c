@@ -102,7 +102,8 @@ bool isNameTaken(const char* newName)
 }
 
 // Zerstört die gesamte User-Liste und gibt alle Ressourcen frei
-void destroyUserList()
+// nicht SignalHandler-sicher
+void destroyUserList(void)
 {
     pthread_mutex_lock(&userLock);
     User *current = userFront;

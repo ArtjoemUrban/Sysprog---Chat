@@ -88,6 +88,7 @@ typedef struct __attribute__((packed))
  void createS2CMessage(Server2Client *msg, const char *sender, const char *text, size_t text_len);
  void handleS2C(const char *sender, const char *text, size_t text_len);
  void sendS2C(User *user, void *msg);
+ void sendS2CError(int client_fd, const char *text);
 
  typedef struct __attribute__((packed))
  {
@@ -117,19 +118,5 @@ typedef struct __attribute__((packed))
 
 UserRemoved createUserRemovedMessage(uint8_t code, const char* name);
 void sendUserRemoved(User *user, void *arg);
-
-
-
-
-
- /* simple-client: */
-typedef struct __attribute__((packed))
-{
-	uint16_t len;		//real length of the text (big endian, len <= MSG_MAX)
-	char text[MSG_MAX];	//text message
-} Message;
-
-int networkReceive(int fd, Message *buffer);
-int networkSend(int fd, const Message *buffer);
 
 #endif

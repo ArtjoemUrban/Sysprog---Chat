@@ -27,13 +27,15 @@ static void *broadcastAgent(void *arg)
 			infoPrint("Broadcast agent is stopping");
 			break;
 		}
-		infoPrint("Warte auf Nachricht in der MessageQueue");
+		
 		sem_wait(&pauseResumeSemaphore);
+		sem_post(&pauseResumeSemaphore);
 
+		infoPrint("Warte auf Nachricht in der MessageQueue");
 		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(Server2Client), NULL);
 		if(recv >= 0)
 		{
-			 sem_post(&pauseResumeSemaphore);
+			 
 			infoPrint("MessageQueue hat nachricht erhalten.");
 
 			iterate_users(sendS2C, &msg);
@@ -104,7 +106,7 @@ void broadcastAgentCleanup(void)
 void broadcastAgentPause(void)
 {
 	infoPrint("Chat wird Pausiert.");
-	sem_wait(&pauseResumeSemaphore);
+	sem_wait(&pauseResumeSemaphore); // versuche Semaphore zu nehmen, falls nicht möglich, ist der Agent bereits pausiert
 	
 }
 void broadcastAgentResume(void)

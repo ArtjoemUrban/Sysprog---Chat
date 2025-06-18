@@ -13,6 +13,7 @@ typedef struct User
 	pthread_t thread;	//thread ID of the client thread
 	int sock;		//socket for client
 	char name [32]; // Null terminiert
+	bool isAdmin; // true, wenn der User Admin ist
 } User;
 
 //TODO: Add prototypes for functions that fulfill the following tasks:

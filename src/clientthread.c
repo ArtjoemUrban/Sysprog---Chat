@@ -66,6 +66,12 @@ void *clientthread(void *arg)
 	memcpy(self->name, name_cpy, name_len+1); // ??? evtl mutex 
 	self->name[USERNAME_MAX] = '\0'; // Um die Null-Terminierung noch mal zu garantieren 
 
+	if( strcmp(self->name, "Admin") == 0)
+	{
+		self->isAdmin = true; // wenn der User admin ist
+		infoPrint("Admin has joined!!!");
+	}
+
 
 	iterate_users(sendUserAddedtoALL,name_cpy); // sendet UserAdded an alle User
 	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
@@ -74,9 +80,8 @@ void *clientthread(void *arg)
 	infoPrint("-------------------------------------------------------------");
 	
  // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
-	
+	int isRunning = 1; //
 	//TODO: Receive messages and send them to all users, skip self
-	// Main Loop
 	for(;;) 
 	{
 		Client2Server msg_c2s; 
@@ -86,8 +91,45 @@ void *clientthread(void *arg)
 		{
 			if(msg_c2s.text[0] == '/')
 			{
-				infoPrint("Command erhalten");
-				//handle Command
+				if(self->isAdmin != true)
+				{
+					errorPrint("User %s tried to use a command but is not an admin", self->name);
+					sendS2CError(self->sock, "Du bist kein Admin und kannst keine Befehle ausführen.");
+					continue;
+				}else if (msg_c2s.header.len == 6  && memcmp(msg_c2s.text, "/pause", 6) == 0)
+				{
+					if (  isRunning == 1)
+					{
+						broadcastAgentPause();
+						infoPrint("Broadcast Agent is Paused");
+						Server2Client msg_s2c;
+						createS2CMessage(&msg_s2c, "", "Chat wurde pausiert.", 20);
+						iterate_users(sendS2C, &msg_s2c);
+						isRunning = 0; 
+						continue;
+					}else{
+						sendS2CError(self->sock, "Chat ist bereits pausiert.");
+						errorPrint("chat ist bereits pausiert -> verwende zuerst /resume.");
+						continue;
+					}
+
+				}else if (msg_c2s.header.len == 7  && memcmp(msg_c2s.text, "/resume", 7) == 0)
+				{
+					if (isRunning == 0)
+					{
+						broadcastAgentResume();
+						Server2Client msg_s2c;
+						createS2CMessage(&msg_s2c, "", "Chat  wird fortgeführt.", 20);
+						iterate_users(sendS2C, &msg_s2c);
+						isRunning = 1;
+						continue;
+					}
+					else{
+						sendS2CError(self->sock, "Chat ist nicht pausiert -> verwende zuerst /pause.");
+						errorPrint("chat ist nicht pausiert");
+						continue;
+					}
+				}	
 			}else{
 				//infoPrint("Text erhalten: %s", msg_c2s.text);
 				Server2Client msg_s2c;

@@ -3,5 +3,7 @@
 
 int broadcastAgentInit(void);
 void broadcastAgentCleanup(void);
+void broadcastAgentPause(void);
+void broadcastAgentResume(void);
 
 #endif

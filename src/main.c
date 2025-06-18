@@ -57,6 +57,7 @@ int main(int argc, char **argv)
     {
         infoPrint("Starting Server with default port: %d.", DEFAULT_PORT);
     }
+    infoPrint(" 'Admin' is the default admin user");
 
     // Signal handler registrieren ---------------------------------------------
     sigset_t set;

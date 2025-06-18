@@ -10,6 +10,7 @@
 #include "util.h"
 #include "user.h"
 
+
 bool chat_paused = false;
 
 typedef struct {
@@ -276,10 +277,21 @@ void handleS2C(const char *sender, const char *text, size_t text_len)
 
 	msg.header.len = htons(sizeof(uint64_t) + USERNAME_MAX + text_len);
 
-	
-	
 	iterate_users(sendS2C, &msg);
 }
+
+void sendS2CError(int client_fd, const char *text)
+ {
+	Server2Client msg;
+	createS2CMessage(&msg, "", text, strlen(text));
+
+	// Sende die Nachricht an den Client
+	ssize_t sent = send(client_fd, &msg, sizeof(msg.header) + ntohs(msg.header.len), 0);
+	if (sent < 0) {
+		errnoPrint("Fehler beim Senden der S2C Error Nachricht an Client %d", client_fd);
+	}
+ }
+
 
 
 /*

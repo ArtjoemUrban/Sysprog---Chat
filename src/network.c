@@ -143,6 +143,12 @@ void sendUserAddedtoALL(User *user, void *arg)
 void sendUserListToNewUser(User *user, void *arg)
 {
     int socket_fd = *(int *)arg;
+
+	if(user->sock == socket_fd)
+	{
+		return; // nicht an den eigenen User senden
+	}
+
     size_t name_len = strnlen(user->name, USERNAME_RAW_MAX);  // sicherstellen, dass kein '\0' innerhalb der Länge auftritt
     if (name_len == 0 || name_len > 31) {
         errorPrint("Ungültige Länge für Usernamen: %zu", name_len);
@@ -183,12 +189,11 @@ UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
 void sendUserRemoved(User *user, void *arg)
 {
 	const UserRemoved* message = (const UserRemoved*)arg;
-	infoPrint("sending URM: type %u, code %u, ",message->header.type,message->code);
 	size_t total_len = sizeof(Header) + ntohs(message->header.len);
 	ssize_t sent = send(user->sock, message, total_len, 0);
 	if(sent != (ssize_t)total_len)
 	{
-		errnoPrint("Fehler beime senden der URM Message");
+		errnoPrint("Fehler beim senden der URM Message");
 	}
 }
 
@@ -232,7 +237,7 @@ int reciveC2S(int sock, Client2Server *msg)
 		return -1;
 	}
 
-	infoPrint("Empfangene Nachricht Type: %u Len: %u Text %20s...", msg->header.type, msg->header.len, msg->text);
+	debugPrint("Empfangene Nachricht Type: %u Len: %u Text %20s...", msg->header.type, msg->header.len, msg->text);
 	return 1;
 }
 

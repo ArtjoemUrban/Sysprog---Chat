@@ -31,8 +31,10 @@ void *signalProcessingThread(void *arg)
                 infoPrint("Received termination signal, cleaning up and exiting...");
                 isRunning = false; // Setze das Flag auf false, um die Schleife zu beenden
 
-                // Setze exitFlag und schließe den Server-Socket
                 closeServerSocket();
+                broadcastAgentCleanup();
+                destroyUserList();
+                
 
                 break; // Beende die Schleife
             }
@@ -44,6 +46,7 @@ void *signalProcessingThread(void *arg)
 
 int main(int argc, char **argv)
 {
+    //debugEnable(); // Debugging aktivieren
     int port = DEFAULT_PORT;
     utilInit(argv[0]);
     infoPrint("Chat server, group 12"); 
@@ -53,7 +56,8 @@ int main(int argc, char **argv)
         errno = 0; 
 
         long parsedPort = strtol(argv[1], &endptr, 10); // strtol für robustere Fehlerbehandlung
-
+        
+        // Überprüfe, ob die Konvertierung erfolgreich war und ob der Port im gültigen Bereich liegt
         if( errno != 0 || *endptr != '\0' || parsedPort < 1024 || parsedPort > 65535) {
             errorPrint("Invalid port number: %s. Must be a number between 1024 and 65535", argv[1]);
             return EXIT_FAILURE; // Beende das Programm bei ungültigem Port
@@ -87,6 +91,12 @@ int main(int argc, char **argv)
         errnoPrint("Failed to create signal processing thread");
         exit(EXIT_FAILURE);
     }
+
+    int serverSocket = createPassiveSocket(port);
+    if (serverSocket == -1) {
+        errnoPrint("Failed to create server socket");
+        return EXIT_FAILURE;
+    }
 // ---------------------------------------------------------------------------
 
     
@@ -98,7 +108,7 @@ int main(int argc, char **argv)
 
     // Starte connectionHandler in einem separaten Thread
     pthread_t connectionThread;
-    if (pthread_create(&connectionThread, NULL, (void *(*)(void *))connectionHandler, (void *)(intptr_t)port) != 0) {
+    if (pthread_create(&connectionThread, NULL, (void *(*)(void *))connectionHandler, (void *)&serverSocket) != 0) {
         errnoPrint("Failed to create connection handler thread");
         return EXIT_FAILURE;
     }
@@ -111,8 +121,7 @@ int main(int argc, char **argv)
     pthread_join(connectionThread, NULL);
 
     infoPrint("Shutting down server...");
-    broadcastAgentCleanup();
-    destroyUserList();
+    //debugDisable(); // Debugging deaktivieren
 
     return EXIT_SUCCESS;
 }

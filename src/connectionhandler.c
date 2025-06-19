@@ -22,7 +22,7 @@ void closeServerSocket(void)
 	
 }
 
-static int createPassiveSocket(in_port_t port)
+int createPassiveSocket(in_port_t port)
 {
 	int fd = -1;
 	fd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET = IPv4, SOCKE_STREAM = TCP, 0 = Protokoll (üblicherweise)
@@ -31,6 +31,15 @@ static int createPassiveSocket(in_port_t port)
 		errnoPrint("Could not create Socket");
 		return -1; // falls erstellung nicht Funktioniert
 	}
+
+    int opt = 1;
+    // Setze den Socket-Option SO_REUSEADDR, um den Socket wiederverwenden zu können
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) 
+    {
+        close(fd);
+        errnoPrint("Could not set socket options");
+        return -1;
+    }
 
 	struct sockaddr_in s_addr;  // erstellt struct für socket-addresse
 	memset(&s_addr, 0, sizeof(s_addr));
@@ -59,12 +68,13 @@ static int createPassiveSocket(in_port_t port)
 
 void *connectionHandler(void *arg)
 {
-    in_port_t port = (in_port_t)(intptr_t)arg;
+    /*in_port_t port = (in_port_t)(intptr_t)arg;
     const int fd = createPassiveSocket(port);
     if (fd == -1) {
         errnoPrint("Unable to create server socket.");
         return NULL;
-    }
+    }*/
+    const int fd = *(int*)(intptr_t)arg; // Castet das Argument zu einem int, das den Socket repräsentiert
     serverSocket = fd; // Speichert den Socket in der globalen Variable
 
     while (exitFlag == 0) {

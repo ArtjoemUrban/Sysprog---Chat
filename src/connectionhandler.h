@@ -8,7 +8,7 @@
 -Es wird für akzeptierte Verbindungen ein Socket erstellt
 -Für jede verbindung wird ein Thread gestartet
 */
-
+int createPassiveSocket(in_port_t port);
 void *connectionHandler(void *arg);
 void closeServerSocket(void);
 

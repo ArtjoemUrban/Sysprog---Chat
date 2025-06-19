@@ -18,7 +18,6 @@ void *clientthread(void *arg)
 {
 	User *self = (User *)arg;
 
-	debugEnable();
 	debugPrint("Client thread started.");
  /// --------------------------------------------------------- Prüfung des Login Requests ------------------------------------
 	LoginRequest loginRequest; // eventuell speicher mit malloc() verwalten -> kein Stack over flow
@@ -170,7 +169,6 @@ void *clientthread(void *arg)
 	}
 	remove_user(self);
 	debugPrint("Client thread stopping it self.");
-	debugDisable();
 	pthread_exit(NULL);
 	//free(arg); // speicher wird in user bereits freigegeben
 	return NULL;

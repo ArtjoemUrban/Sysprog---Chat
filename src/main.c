@@ -5,6 +5,10 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <ctype.h> // Für isdigit
+#include <limits.h> // Für INT_MAX
+#include <errno.h>
+
 
 #include "connectionhandler.h"
 #include "util.h"
@@ -44,19 +48,23 @@ int main(int argc, char **argv)
     utilInit(argv[0]);
     infoPrint("Chat server, group 12"); 
 	if (argc > 1) {
-        port = atoi(argv[1]); // atoi converts string to integer
-        if (port <= 1023 || port > 65535) // Check if port is in valid range
-        {
-            infoPrint("Invalid port number: %s. Using default port %d.", argv[1], DEFAULT_PORT);
-            port = DEFAULT_PORT;
+
+        char *endptr; // Pointer für die Fehlerbehandlung
+        errno = 0; 
+
+        long parsedPort = strtol(argv[1], &endptr, 10); // strtol für robustere Fehlerbehandlung
+
+        if( errno != 0 || *endptr != '\0' || parsedPort < 1024 || parsedPort > 65535) {
+            errorPrint("Invalid port number: %s. Must be a number between 1024 and 65535", argv[1]);
+            return EXIT_FAILURE; // Beende das Programm bei ungültigem Port
         } else {
+            port = (int)parsedPort; // Konvertiere den gültigen Port in int
             infoPrint("Using port: %d", port);
-        }
+        } 
+    }else {
+        infoPrint("Using default port: %d", DEFAULT_PORT);
     }
-    else
-    {
-        infoPrint("Starting Server with default port: %d.", DEFAULT_PORT);
-    }
+    
     infoPrint(" 'Admin' is the default admin user");
 
     // Signal handler registrieren ---------------------------------------------

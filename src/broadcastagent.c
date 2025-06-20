@@ -1,6 +1,9 @@
 #include <pthread.h>
 #include <mqueue.h>
 #include <semaphore.h>
+#include <time.h>
+#include <errno.h>
+
 #include "broadcastagent.h"
 #include "util.h"
 #include "network.h"
@@ -11,6 +14,7 @@
 static mqd_t messageQueue;
 static pthread_t threadId;
 static sem_t pauseResumeSemaphore; // modul global
+ 
 
 static volatile bool isRunning = true;
 static bool isInitialized = false;
@@ -19,26 +23,17 @@ static bool isInitialized = false;
 static void *broadcastAgent(void *arg)
 {
 	Server2Client msg;
-	//TODO: Implement thread function for the broadcast agent here!
 	while(isRunning) // solange der Thread läuft
 	{
-		if(!isRunning)
-		{
-			infoPrint("Broadcast agent is stopping");
-			break;
-		}
-		
-		sem_wait(&pauseResumeSemaphore);
-		sem_post(&pauseResumeSemaphore);
-
 		infoPrint("Warte auf Nachricht in der MessageQueue");
 		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(Server2Client), NULL);
 		if(recv >= 0)
 		{
 			 
 			infoPrint("MessageQueue hat nachricht erhalten.");
-
+			sem_wait(&pauseResumeSemaphore); // warten bis der Thread fortgesetzt wird
 			iterate_users(sendS2C, &msg);
+			sem_post(&pauseResumeSemaphore); // fortsetzen
 		}else{
 			errnoPrint("MessageQueue konnte nachricht nicht empfangen: ");
 		}
@@ -107,6 +102,7 @@ void broadcastAgentPause(void)
 {
 	infoPrint("Chat wird Pausiert.");
 	sem_wait(&pauseResumeSemaphore); // versuche Semaphore zu nehmen, falls nicht möglich, ist der Agent bereits pausiert
+	
 	
 }
 void broadcastAgentResume(void)

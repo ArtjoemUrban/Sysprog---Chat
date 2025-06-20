@@ -6,15 +6,10 @@
 #include "clientthread.h"
 #include "util.h"
 
-static pthread_mutex_t userLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t userLock = PTHREAD_MUTEX_INITIALIZER; // Initialisiert den Mutex für die User-Liste
 static User *userFront = NULL;
 static User *userBack = NULL;
 
-// Funktion zum debugggen
-void printUser(User *user, void *arg)
-{
-    infoPrint("Angemeldet: %s", user->name);
-}
 
 //TODO: Implement the functions declared in user.h
 User *add_user(int sock)
@@ -70,7 +65,6 @@ void remove_user(User *user)
     close(user->sock); // schließt socket
     free(user);
     infoPrint("User removed");
-    iterate_users(printUser, NULL);
 }
 
 void iterate_users(void (*callback)(User *, void *), void *arg)

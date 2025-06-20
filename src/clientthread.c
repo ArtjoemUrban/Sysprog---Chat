@@ -1,3 +1,6 @@
+#define _POSIX_C_SOURCE 199309L
+#define _POSIX_C_SOURCE 200809L
+
 #include "network.h"
 #include "clientthread.h"
 #include "user.h"
@@ -12,6 +15,35 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mqueue.h>
+#include <time.h>
+#include <errno.h>
+
+int send2MessageQueueWithTimeout(mqd_t mq, const void* msg, size_t len, unsigned int prio, int timeoutMillis)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    
+    ts.tv_sec += timeoutMillis / 1000;
+    ts.tv_nsec += (timeoutMillis % 1000) * 1000000;
+    if (ts.tv_nsec >= 1000000000) {
+        ts.tv_sec++;
+        ts.tv_nsec -= 1000000000;
+    }
+
+    int ret = mq_timedsend(mq, msg, len, prio, &ts);
+    if (ret == -1) {
+        if (errno == ETIMEDOUT) {
+            errnoPrint("Message queue is full, and timeout expired.");
+			return -1; // Fehler beim Senden
+        } else {
+            errnoPrint("mq_timedsend failed");
+			return -2; // Fehler beim Senden
+        }
+		
+    }
+
+    return ret;
+}
 
 // Funktion für Client
 void *clientthread(void *arg)
@@ -150,6 +182,7 @@ void *clientthread(void *arg)
 				//infoPrint("Text erhalten: %s", msg_c2s.text);
 				Server2Client msg_s2c;
 				createS2CMessage(&msg_s2c, self->name, msg_c2s.text, msg_c2s.header.len);
+				//sendS2CError(self->sock, "Text wurde empfangen und wird an alle User gesendet.");
 
 				mqd_t messageQueue = mq_open("/broadcast_queue", O_WRONLY);
 				if (messageQueue == (mqd_t)-1) {
@@ -157,9 +190,10 @@ void *clientthread(void *arg)
 					continue;	
 				}
 				// Sende die Nachricht an die Message Queue
-				if(mq_send(messageQueue, (const char*)&msg_s2c, sizeof(Server2Client), 0) == -1)
+				if(send2MessageQueueWithTimeout(messageQueue, (const char*)&msg_s2c, sizeof(Server2Client),0,100) == -1)
 				{
 					errnoPrint("Fehler beim Senden der Nachricht an die Message Queue");
+					sendS2CError(self->sock, "Message Queue ist voll diese Nachricht wird nicht gesendet.");
 				}
 				mq_close(messageQueue); // schließt die Message Queue
 			}

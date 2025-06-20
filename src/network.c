@@ -136,7 +136,7 @@ void sendUserAddedtoALL(User *user, void *arg)
 	{
 		errnoPrint("konnte UserAdded nicht versenden an %s", user->name);
 	}
-	infoPrint("UserAdded Nachricht an %s gesendet", user->name);
+	debugPrint("UserAdded Nachricht an %s gesendet", user->name);
 }
 
 // Sendet die Namen aller User an den neuen User
@@ -220,13 +220,13 @@ int reciveC2S(int sock, Client2Server *msg)
 		errorPrint("Falscher Type: %u, in C2S", header.type);
 		return 2;
 	}
-	header.len = htons(header.len);
+	header.len = htons(header.len); // Host Byte Order
 	if(header.len > MSG_MAX)
 	{
 		errorPrint(" C2S Nachricht ist zu Lang");
 		return 2;
 	}
-	memset(msg,0,sizeof(Client2Server)); // aufräumen
+	memset(msg,0,sizeof(Client2Server)); // setzt zuerst alles auf 0 
 	msg->header = header;
 
 	// empfange Bytes wie im len Feld 

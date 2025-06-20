@@ -71,7 +71,6 @@ void *clientthread(void *arg)
 		infoPrint("Admin has joined!!!");
 	}
 
-
 	iterate_users(sendUserAddedtoALL,name_cpy); // sendet UserAdded an alle User
 	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
 
@@ -84,9 +83,9 @@ void *clientthread(void *arg)
 	for(;;) 
 	{
 		Client2Server msg_c2s; 
-		int feedback =reciveC2S(self->sock, &msg_c2s);
+		int recv =reciveC2S(self->sock, &msg_c2s);
 
-		if(feedback ==1)
+		if(recv ==1)
 		{
 			if(msg_c2s.text[0] == '/')
 			{
@@ -128,6 +127,24 @@ void *clientthread(void *arg)
 						errorPrint("chat ist nicht pausiert");
 						continue;
 					}
+				}else if(msg_c2s.header.len >= 5 && memcmp(msg_c2s.text, "/kick",5)==0)
+				{
+					infoPrint("kick Befehl erhalten");
+					char username[USERNAME_MAX] = {0};
+					memcpy(username, msg_c2s.text + 6, msg_c2s.header.len - 6); // kopiert den Namen nach dem /kick
+					if( kickUser(username))
+					{
+						UserRemoved msg = createUserRemovedMessage(KICKED, username);
+						iterate_users(sendUserRemoved,&msg);
+						continue;
+
+					}else
+					{
+						sendS2CError(self->sock, "User konnte nicht gekickt werden.");
+					}
+					continue;
+
+
 				}	
 			}else{
 				//infoPrint("Text erhalten: %s", msg_c2s.text);
@@ -148,7 +165,7 @@ void *clientthread(void *arg)
 			}
 
 		}
-		else if( feedback == 0)
+		else if( recv == 0)
 		{
 			// client hat Verbindung beendet
 			UserRemoved msg = createUserRemovedMessage(LEFT, self->name);
@@ -156,15 +173,16 @@ void *clientthread(void *arg)
 			
 			break;
 		}
-		else if(feedback == -1)
+		else if(recv == -1)
 		{
 			// Verbindung Abgebrochen
+			errorPrint("Verbindung zum Client %s wurde abgebrochen", self->name);
 			UserRemoved msg = createUserRemovedMessage(ERROR, self->name);
 			iterate_users(sendUserRemoved,&msg);
 			break;
 		}else
 		{
-			debugPrint("fehler beim empfangen der C2S versuch noch mal");
+			errorPrint("fehler beim empfangen der C2S versuch noch mal");
 		}
 	}
 	remove_user(self);

@@ -68,12 +68,6 @@ int createPassiveSocket(in_port_t port)
 
 void *connectionHandler(void *arg)
 {
-    /*in_port_t port = (in_port_t)(intptr_t)arg;
-    const int fd = createPassiveSocket(port);
-    if (fd == -1) {
-        errnoPrint("Unable to create server socket.");
-        return NULL;
-    }*/
     const int fd = *(int*)(intptr_t)arg; // Castet das Argument zu einem int, das den Socket repräsentiert
     serverSocket = fd; // Speichert den Socket in der globalen Variable
 

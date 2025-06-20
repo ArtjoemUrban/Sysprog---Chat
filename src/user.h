@@ -14,6 +14,7 @@ typedef struct User
 	int sock;		//socket for client
 	char name [32]; // Null terminiert
 	bool isAdmin; // true, wenn der User Admin ist
+	
 } User;
 
 //TODO: Add prototypes for functions that fulfill the following tasks:
@@ -33,7 +34,8 @@ void remove_user(User *user);
 void iterate_users(void (*callback)(User *user, void *arg), void *arg);
 
 // Prüfe ob Username bereits vorhanden
-bool isNameTaken(const char* newName);
+User *isNameTaken(const char* newName);
+bool kickUser(const char *username);
 
 void destroyUserList(void);
 

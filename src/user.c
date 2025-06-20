@@ -62,10 +62,12 @@ void remove_user(User *user)
         userBack = NULL;
     pthread_mutex_unlock(&userLock);
     
-    close(user->sock); // schließt socket
-    memset(user->name, 0, sizeof(user->name));
+    
+    
     pthread_cancel(user->thread); // beendet den Thread
     pthread_join(user->thread, NULL); // wartet auf Thread-Beendigung
+    memset(user->name, 0, sizeof(user->name));
+    close(user->sock); // schließt socket
     free(user);
     infoPrint("User removed");
     iterate_users(printUser, NULL);
@@ -84,7 +86,7 @@ void iterate_users(void (*callback)(User *, void *), void *arg)
     pthread_mutex_unlock(&userLock);
 }
 
-bool isNameTaken(const char* newName)
+User *isNameTaken(const char* newName)
 {
     pthread_mutex_lock(&userLock);
     User *current = userFront;
@@ -93,12 +95,28 @@ bool isNameTaken(const char* newName)
         if(strncmp(current->name, newName,31) == 0)
         {
             pthread_mutex_unlock(&userLock);
-            return true;
+            return current; // Name gefunden
         }
         current = current->next;
     }
     pthread_mutex_unlock(&userLock);
     return false;
+}
+
+bool kickUser(const char *username)
+{
+    User * user = isNameTaken(username);
+    if (user) {
+        // Sende eine Nachricht an den User, dass er gekickt wurde
+        //sendS2CError(user->sock, "Du wurdest vom Server gekickt.");
+        
+        remove_user(user); // Entfernt den User aus der Liste
+        infoPrint("User %s wurde gekickt", username);
+        return true;
+    } else {
+        errorPrint("User %s nicht gefunden", username);
+        return false;
+    }
 }
 
 // Zerstört die gesamte User-Liste und gibt alle Ressourcen frei

@@ -32,7 +32,11 @@ static void *broadcastAgent(void *arg)
 			 
 			infoPrint("MessageQueue hat nachricht erhalten.");
 			sem_wait(&pauseResumeSemaphore); // warten bis der Thread fortgesetzt wird
+
+			pthread_mutex_lock(&userLock); // Sperre für die User-Liste
 			iterate_users(sendS2C, &msg);
+			pthread_mutex_unlock(&userLock); // Sperre wieder freigeben
+			
 			sem_post(&pauseResumeSemaphore); // fortsetzen
 		}else{
 			errnoPrint("MessageQueue konnte nachricht nicht empfangen: ");

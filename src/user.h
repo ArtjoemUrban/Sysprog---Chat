@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+extern pthread_mutex_t userLock; // Mutex für die User-Liste
+//extern bedutet, dass die Variable in einer anderen Datei definiert ist
+
 
 typedef struct User
 {

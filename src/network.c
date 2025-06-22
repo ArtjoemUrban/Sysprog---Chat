@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <endian.h>
+#include <fcntl.h> // Für fcntl (file control)-> Socket Validierung
 
 #include <stdbool.h>
 #include "network.h"
@@ -38,7 +39,7 @@ bool reciveLoginRequest(int fd, LoginRequest * msg)
 
     // Header-> Type prüfen
     if (msg->header.type != LRQ) {
-        debugPrint("Erste Nachricht ist kein LRQ");
+        errorPrint("Erste Nachricht ist kein LRQ");
         return false;
     }
 	
@@ -136,7 +137,6 @@ void sendUserAddedtoALL(User *user, void *arg)
 	{
 		errnoPrint("konnte UserAdded nicht versenden an %s", user->name);
 	}
-	debugPrint("UserAdded Nachricht an %s gesendet", user->name);
 }
 
 // Sendet die Namen aller User an den neuen User
@@ -190,6 +190,12 @@ void sendUserRemoved(User *user, void *arg)
 {
 	const UserRemoved* message = (const UserRemoved*)arg;
 	size_t total_len = sizeof(Header) + ntohs(message->header.len);
+
+	// Prüfe, ob der Socket noch gültig ist
+    if (user->sock == -1) {
+        return;
+    }
+
 	ssize_t sent = send(user->sock, message, total_len, 0);
 	if(sent != (ssize_t)total_len)
 	{
@@ -296,71 +302,3 @@ void sendS2CError(int client_fd, const char *text)
 		errnoPrint("Fehler beim Senden der S2C Error Nachricht an Client %d", client_fd);
 	}
  }
-
-
-
-/*
-void handle_c2s_message(int client_fd, const char *message, size_t length) {
-    if (message[0] == '/') {
-        // Command (z.B. /pause)
-        if (strcmp(message, "/pause") == 0) {
-            broadcast_server_message("Chat wurde pausiert.");
-            chat_paused = true;
-        } else {
-            send_s2c_error(client_fd, "Unbekannter Befehl");
-        }
-    } else {
-        // Reguläre Nachricht weiterleiten
-        time_t timestamp = time(NULL);
-        const char *sender_name = get_username_by_fd(client_fd);
-        if (!sender_name) return;
-        broadcast_s2c_message(sender_name, message, timestamp);
-    }
-}
-*/
-/*
-// server an alle User -> pause
-void broadcast_s2c_message(const char *sender, const char *text, time_t timestamp) {
-    uint8_t type = 3;
-    uint32_t len_sender = strlen(sender) + 1; // null-terminated
-    uint16_t length = 8 + 32 + strlen(text);  // timestamp + sender + text
-    if (length > 552) length = 552;
-
-    uint8_t header[3];
-    header[0] = type;
-    header[1] = (length >> 8) & 0xFF;
-    header[2] = length & 0xFF;
-
-  	for (int i = 0; i < client_count; ++i) {
-    Client *c = &clients[i];
-        send(c->fd, header, 3, 0);
-        send_u64(c->fd, (uint64_t)timestamp);
-
-        char sender_field[32] = {0};
-        strncpy(sender_field, sender, 31);
-        send(c->fd, sender_field, 32, 0);
-
-        send(c->fd, text, strlen(text), 0);
-    }
-}
-
-// server an einzelnen client
-void send_s2c_error(int client_fd, const char *text) {
-    uint8_t type = 3;
-    uint16_t length = 8 + 32 + strlen(text); // timestamp + sender + text
-    if (length > 552) length = 552;
-
-    uint8_t header[3];
-    header[0] = type;
-    header[1] = (length >> 8) & 0xFF;
-    header[2] = length & 0xFF;
-
-    uint64_t timestamp = (uint64_t)time(NULL);
-    char sender_field[32] = {0}; // leer, d.h. Servernachricht
-
-    send(client_fd, header, 3, 0);
-    send_u64(client_fd, timestamp);
-    send(client_fd, sender_field, 32, 0);
-    send(client_fd, text, strlen(text), 0);
-}
-	*/

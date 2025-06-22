@@ -18,6 +18,7 @@
 #include <time.h>
 #include <errno.h>
 
+// Funktion zum Senden einer Nachricht an die Message Queue mit Timeout
 int send2MessageQueueWithTimeout(mqd_t mq, const void* msg, size_t len, unsigned int prio, int timeoutMillis)
 {
     struct timespec ts;
@@ -49,15 +50,15 @@ int send2MessageQueueWithTimeout(mqd_t mq, const void* msg, size_t len, unsigned
 void *clientthread(void *arg)
 {
 	User *self = (User *)arg;
-
-	debugPrint("Client thread started.");
  /// --------------------------------------------------------- Prüfung des Login Requests ------------------------------------
 	LoginRequest loginRequest; // eventuell speicher mit malloc() verwalten -> kein Stack over flow
 
 	if(!reciveLoginRequest(self->sock, &loginRequest))
 	{
 		errorPrint("LoginRequst konnte nicht Empfangen werden-> User wird entfernt");
+		//pthread_mutex_unlock(&userLock); ist bereits
 		remove_user(self);
+		
 		return NULL;
 	}
 	// Prüfen ob Username nicht zu lange ist
@@ -68,6 +69,8 @@ void *clientthread(void *arg)
 	{
 		errorPrint("Ungültige Version des Protokolls: %i", loginRequest.version);
 		sendLoginResponse(self->sock, PROTOCOL_VERSION_MISMATCH);
+		pthread_mutex_unlock(&userLock);
+		pthread_mutex_lock(&userLock);
 		remove_user(self);
 		return NULL;
 	}
@@ -77,6 +80,8 @@ void *clientthread(void *arg)
 	{
 		debugPrint("Username nicht zugelassen");
 		sendLoginResponse(self->sock, NAME_INVALID);
+		pthread_mutex_unlock(&userLock);
+		pthread_mutex_lock(&userLock);
 		remove_user(self);
 		return NULL;
 	}
@@ -89,6 +94,8 @@ void *clientthread(void *arg)
 	{
 		errorPrint("Name %s ist bereits vergeben", name_cpy);
 		sendLoginResponse(self->sock, NAME_TAKEN);
+		pthread_mutex_unlock(&userLock);
+		pthread_mutex_lock(&userLock);
 		remove_user(self);
 		return NULL;
 	}
@@ -107,7 +114,8 @@ void *clientthread(void *arg)
 	iterate_users(sendUserListToNewUser, &(self->sock)); // sendet jeden Namen der aktiven user an den neuen
 
 	infoPrint("User: %s wurde erfolgreich hinzugefügt", self->name);
-	infoPrint("-------------------------------------------------------------");
+	
+	pthread_mutex_unlock(&userLock); // Gibt Mutex nach dem Hinzufügen des Users frei
 	
  // ---------------------------------------------------------- Prüfung LRQ Ende -----------------------------------------------
 	int isRunning = 1; //
@@ -134,7 +142,9 @@ void *clientthread(void *arg)
 						infoPrint("Broadcast Agent is Paused");
 						Server2Client msg_s2c;
 						createS2CMessage(&msg_s2c, "", "Chat wurde pausiert.", 20);
+						pthread_mutex_lock(&userLock); // Sperre für die User-Liste
 						iterate_users(sendS2C, &msg_s2c);
+						pthread_mutex_unlock(&userLock); // Sperre wieder freigeben
 						isRunning = 0; 
 						continue;
 					}else{
@@ -150,7 +160,9 @@ void *clientthread(void *arg)
 						broadcastAgentResume();
 						Server2Client msg_s2c;
 						createS2CMessage(&msg_s2c, "", "Chat  wird fortgeführt.", 20);
+						pthread_mutex_lock(&userLock);
 						iterate_users(sendS2C, &msg_s2c);
+						pthread_mutex_unlock(&userLock); 
 						isRunning = 1;
 						continue;
 					}
@@ -167,12 +179,14 @@ void *clientthread(void *arg)
 					if( kickUser(username))
 					{
 						UserRemoved msg = createUserRemovedMessage(KICKED, username);
+						pthread_mutex_lock(&userLock); 
 						iterate_users(sendUserRemoved,&msg);
+						pthread_mutex_unlock(&userLock); 
 						continue;
 
 					}else
 					{
-						sendS2CError(self->sock, "User konnte nicht gekickt werden.");
+						sendS2CError(self->sock, "User existiert nicht.");
 					}
 					continue;
 
@@ -202,8 +216,22 @@ void *clientthread(void *arg)
 		else if( recv == 0)
 		{
 			// client hat Verbindung beendet
+			//self->sock = -1; // setze sock auf -1 damit der User nicht mehr in der Liste ist
+
 			UserRemoved msg = createUserRemovedMessage(LEFT, self->name);
-			iterate_users(sendUserRemoved,&msg);
+			pthread_mutex_lock(&userLock);
+
+			char user[4] = "user";
+			
+			if (memcmp(self->name, user, 4) != 0) // 
+			{
+				iterate_users(sendUserRemoved,&msg); // -> hier ist ein problem
+			}
+			
+
+			
+			remove_user(self);
+			pthread_exit(NULL);
 			
 			break;
 		}
@@ -212,14 +240,19 @@ void *clientthread(void *arg)
 			// Verbindung Abgebrochen
 			errorPrint("Verbindung zum Client %s wurde abgebrochen", self->name);
 			UserRemoved msg = createUserRemovedMessage(ERROR, self->name);
+			pthread_mutex_lock(&userLock);
+
 			iterate_users(sendUserRemoved,&msg);
+			remove_user(self);
+			pthread_exit(NULL);
 			break;
 		}else
 		{
 			errorPrint("fehler beim empfangen der C2S versuch noch mal");
 		}
 	}
-	remove_user(self);
+	
+	
 	debugPrint("Client thread stopping it self.");
 	pthread_exit(NULL);
 	//free(arg); // speicher wird in user bereits freigegeben

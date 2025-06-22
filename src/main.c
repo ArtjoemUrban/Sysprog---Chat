@@ -46,7 +46,7 @@ void *signalProcessingThread(void *arg)
 
 int main(int argc, char **argv)
 {
-    //debugEnable(); // Debugging aktivieren
+    debugEnable(); // Debugging aktivieren
     int port = DEFAULT_PORT;
     utilInit(argv[0]);
     infoPrint("Chat server, group 12"); 
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
     pthread_join(connectionThread, NULL);
 
     infoPrint("Shutting down server...");
-    //debugDisable(); // Debugging deaktivieren
+    debugDisable(); // Debugging deaktivieren
 
     return EXIT_SUCCESS;
 }

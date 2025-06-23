@@ -168,13 +168,13 @@ void sendUserRemoved(User *user, void *arg)
 	const UserRemoved* message = (const UserRemoved*)arg;
 	size_t total_len = sizeof(Header) + ntohs(message->header.len);
 
-	char uuser[4] = "user";		
+	/*char uuser[4] = "user";		
 	if (memcmp(user->name, uuser, 4) == 0)
 	{
 		return;
-	}
+	}*/
 
-	ssize_t sent = send(user->sock, message, total_len, 0);
+	ssize_t sent = send(user->sock, message, total_len, MSG_NOSIGNAL);
 	if(sent != (ssize_t)total_len)
 	{
 		errnoPrint("Fehler beim senden der URM Message");

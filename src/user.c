@@ -56,13 +56,12 @@ void remove_user(User *user)
         userBack = NULL;
     pthread_mutex_unlock(&userLock);
     
-    infoPrint("User removed %s", user->name);
+    debugPrint("User removed %s", user->name);
     memset(user->name, 0, sizeof(user->name));
     close(user->sock); // schließt socket
     //pthread_cancel(user->thread); // beendet den Thread
     //pthread_join(user->thread, NULL); // wartet auf Thread-Beendigung
    
-    
     free(user);
     
 }
@@ -99,11 +98,16 @@ User *isNameTaken(const char* newName)
     return false;
 }
 
-bool kickUser(const char *username)
+int kickUser(const char *username)
 {
     pthread_mutex_lock(&userLock);
     User * user = isNameTaken(username);
     if (user) {
+        if (user->isAdmin) {
+            errorPrint("Kicking an admin user is not allowed: %s", username);
+            pthread_mutex_unlock(&userLock);
+            return 3; // Admin kann nicht gekickt werden
+        }
         // User gefunden, entferne ihn aus der Liste 
         if (user->prev) user->prev->next = user->next;
             else userFront = user->next;
@@ -124,11 +128,11 @@ bool kickUser(const char *username)
         infoPrint("User %s wurde gekickt", username);
         //--------------------------------------------------
         
-        return true;
+        return 1;
     } else {
         errorPrint("User %s nicht gefunden", username);
         pthread_mutex_unlock(&userLock);
-        return false;
+        return 2;
     }
 }
 

@@ -86,8 +86,8 @@ typedef struct __attribute__((packed))
  }Server2Client;
  
  void createS2CMessage(Server2Client *msg, const char *sender, const char *text, size_t text_len);
- void handleS2C(const char *sender, const char *text, size_t text_len);
  void sendS2C(User *user, void *msg);
+ // Sende eine Nachricht an den Client, Sender ist leer
  void sendS2CError(int client_fd, const char *text);
 
  typedef struct __attribute__((packed))

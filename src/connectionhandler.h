@@ -8,8 +8,11 @@
 -Es wird für akzeptierte Verbindungen ein Socket erstellt
 -Für jede verbindung wird ein Thread gestartet
 */
+// Gibt den Socket zurück, der auf Verbindungen wartet
 int createPassiveSocket(in_port_t port);
+// nimmt aktiven socket entgegen
 void *connectionHandler(void *arg);
+
 void closeServerSocket(void);
 
 #endif

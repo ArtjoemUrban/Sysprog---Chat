@@ -11,38 +11,23 @@
 #include "util.h"
 #include "user.h"
 
-
-bool chat_paused = false;
-
-typedef struct {
-    int fd;
-    char name[USERNAME_RAW_MAX];
-} Client;
-
-#define MAX_CLIENTS 100
-Client clients[MAX_CLIENTS];
-int client_count = 0;
-
 bool reciveLoginRequest(int fd, LoginRequest * msg)
 {
 	// Header lesen
     ssize_t received = recv(fd, &msg->header, sizeof(Header), MSG_WAITALL);
     if (received !=sizeof(Header)) {
         errnoPrint("Fehler beim empfangen des LRQ");
-		
         return false;
     }
     if ((size_t)received != sizeof(Header)) {
         errorPrint("Header hat falsche Länge");
         return false;
     }
-
     // Header-> Type prüfen
     if (msg->header.type != LRQ) {
         errorPrint("Erste Nachricht ist kein LRQ");
         return false;
     }
-	
 	// Header-> Len prüfen
 	msg->header.len = ntohs(msg->header.len);
 	if(msg->header.len < 5 || msg->header.len > (USERNAME_RAW_MAX +5))
@@ -50,7 +35,6 @@ bool reciveLoginRequest(int fd, LoginRequest * msg)
 		errorPrint("Ungültige länge");
 		return false;
 	}
-
     // Restliche Daten lesen 
     received = recv(fd, ((char*)msg) + sizeof(Header), msg->header.len, MSG_WAITALL); // ((char*)buff) + sizeof(Header) position nach hader
     if (received != msg->header.len) {
@@ -64,13 +48,11 @@ bool reciveLoginRequest(int fd, LoginRequest * msg)
         return false;
     }
     return true;
-
 	//username prüfen
 	if (msg->name[0] == '\0' || memchr(msg->name, '\0', USERNAME_RAW_MAX)) {
     errorPrint("Ungültiger Username (Null-Byte oder leer)");
     return false;
-}
-
+	}
 };
 
 void sendLoginResponse(int fd, uint8_t code)
@@ -78,16 +60,13 @@ void sendLoginResponse(int fd, uint8_t code)
 	// Servername Prüfen
 	const char *server_name = SERVER_NAME;
 	size_t server_name_len = strlen(server_name);
-
 	if(server_name_len < 1 || server_name_len > SNAME_MAX)
 	{
 		errorPrint("Servername ist ungültig für LRE");
 		return;
 	}
 
-	// Nachricht muss erstellt werden
 	LoginResponse loginResponse;
-
 	// Header
 	loginResponse.header.type = LRE;
 	loginResponse.header.len = htons(4 + 1 + server_name_len);
@@ -104,11 +83,10 @@ void sendLoginResponse(int fd, uint8_t code)
 
 	// SEnden
 	size_t sent = send(fd, &loginResponse, loginResponse_len, 0);
-	if(sent != (ssize_t) loginResponse_len)
+	if(sent != (size_t) loginResponse_len)
 	{
 		errnoPrint("Fehler beim senden des LRE");
 	}
-
 };
 
 // Benachrichtigt alle User über den neuen User
@@ -130,7 +108,6 @@ void sendUserAddedtoALL(User *user, void *arg)
 	message.timestamp = htobe64((uint64_t)time(NULL)); // Aktueller Timestamp
 	memcpy(message.name, name, name_len);
 
-
 	size_t total_len = sizeof(Header) + 8 + name_len;
 	ssize_t sent = send(user->sock, &message, total_len,0);
 	if(sent != (ssize_t)total_len)
@@ -143,7 +120,6 @@ void sendUserAddedtoALL(User *user, void *arg)
 void sendUserListToNewUser(User *user, void *arg)
 {
     int socket_fd = *(int *)arg;
-
 	if(user->sock == socket_fd)
 	{
 		return; // nicht an den eigenen User senden
@@ -186,15 +162,17 @@ UserRemoved createUserRemovedMessage(u_int8_t code, const char* name)
 	memcpy(message.name, name, name_len);
 	return message;
 }
+
 void sendUserRemoved(User *user, void *arg)
 {
 	const UserRemoved* message = (const UserRemoved*)arg;
 	size_t total_len = sizeof(Header) + ntohs(message->header.len);
 
-	// Prüfe, ob der Socket noch gültig ist
-    if (user->sock == -1) {
-        return;
-    }
+	char uuser[4] = "user";		
+	if (memcmp(user->name, uuser, 4) == 0)
+	{
+		return;
+	}
 
 	ssize_t sent = send(user->sock, message, total_len, 0);
 	if(sent != (ssize_t)total_len)
@@ -202,7 +180,6 @@ void sendUserRemoved(User *user, void *arg)
 		errnoPrint("Fehler beim senden der URM Message");
 	}
 }
-
 
 int reciveC2S(int sock, Client2Server *msg)
 {
@@ -256,7 +233,7 @@ void sendS2C(User *user, void *msg)
 		errorPrint("Nachricht ist zu lang zum Versenden");
 	}
 	ssize_t sent = send(user->sock, s2c, total_len,0);
-	if(sent != total_len)
+	if(sent != (ssize_t)total_len)
 	{
 		errorPrint("Fehler beim senden der S2C an %s", user->name);
 	}
@@ -275,21 +252,6 @@ void createS2CMessage(Server2Client *msg, const char *sender, const char *text, 
 	msg->header.len = htons(sizeof(uint64_t) + USERNAME_MAX + text_len);
 }
 
-void handleS2C(const char *sender, const char *text, size_t text_len)
-{
-	Server2Client msg;
-	memset(&msg, 0, sizeof(Server2Client)); // aufräumen
-
-	msg.header.type = S2C;
-	msg.timeStamp = hton64u((uint64_t)time(NULL));
-
-	strncpy(msg.originalSender, sender,USERNAME_MAX); // Sender
-	memcpy(msg.text, text, text_len);
-
-	msg.header.len = htons(sizeof(uint64_t) + USERNAME_MAX + text_len);
-
-	iterate_users(sendS2C, &msg);
-}
 
 void sendS2CError(int client_fd, const char *text)
  {

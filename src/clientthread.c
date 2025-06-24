@@ -220,7 +220,7 @@ void *clientthread(void *arg)
 		else if(recv == -1)
 		{
 			// Verbindung Abgebrochen
-			errorPrint("Verbindung zum Client %s wurde abgebrochen", self->name);
+			debugPrint("Verbindung zum Client %s wurde abgebrochen", self->name);
 			UserRemoved msg = createUserRemovedMessage(ERROR, self->name);
 			pthread_mutex_lock(&userLock);
 

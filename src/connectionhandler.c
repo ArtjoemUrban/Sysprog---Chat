@@ -23,7 +23,7 @@ void closeServerSocket(void)
 
 int createPassiveSocket(in_port_t port)
 {
-	int fd = -1;
+	int fd = -1; 
 	fd = socket(AF_INET, SOCK_STREAM, 0); // AF_INET = IPv4, SOCKE_STREAM = TCP, 0 = Protokoll (üblicherweise)
 	if (fd == -1) 
 	{
@@ -33,6 +33,7 @@ int createPassiveSocket(in_port_t port)
 
     int opt = 1;
     // Setze den Socket-Option SO_REUSEADDR, um den Socket wiederverwenden zu können
+    // SOL_SOCKET ist die Ebene, auf der die Option gesetzt wird
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) 
     {
         close(fd);
@@ -41,7 +42,7 @@ int createPassiveSocket(in_port_t port)
     }
 
 	struct sockaddr_in s_addr;  // erstellt struct für socket-addresse
-	memset(&s_addr, 0, sizeof(s_addr));
+	memset(&s_addr, 0, sizeof(s_addr)); 
 	s_addr.sin_family = AF_INET;  // IPv4
 	s_addr.sin_addr.s_addr = INADDR_ANY; // akzeptiert verbindungen auf allen interfaces
 	s_addr.sin_port = htons(port);  // setzt den Port, htons() wandelt die Byte-Reihenfolge um
@@ -55,7 +56,7 @@ int createPassiveSocket(in_port_t port)
 	};
 
 	// Markiert den Socket als passiven Socket, der auf eingehende Verbindungen wartet
-	if (listen(fd, 4) == -1) // SOMAXCONN kann als zweiter parameter für Warteschlange verwendet werden
+	if (listen(fd, 4) == -1) // 4 ist die maximale Anzahl an Verbindungen, die in der Warteschlange stehen können
 	{
 		close(fd);
 		errnoPrint("Could not mark socket to be accepting conections");
@@ -81,11 +82,7 @@ void *connectionHandler(void *arg)
 
         *client_fd = accept(fd, (struct sockaddr*)&client_addr, &client_len);
         if (*client_fd == -1) {
-            if (exitFlag != 0) {
-                // Schleife wurde durch Signal unterbrochen
-                free(client_fd);
-                break;
-            }
+
             errnoPrint("Could not accept Client Connection");
             free(client_fd);
             continue;
@@ -98,7 +95,6 @@ void *connectionHandler(void *arg)
             continue;
         }
     }
-    close(fd);
     return NULL;
 }
 

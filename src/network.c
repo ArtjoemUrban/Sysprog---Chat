@@ -4,9 +4,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <endian.h>
-#include <fcntl.h> // Für fcntl (file control)-> Socket Validierung
-
 #include <stdbool.h>
+
 #include "network.h"
 #include "util.h"
 #include "user.h"
@@ -168,16 +167,12 @@ void sendUserRemoved(User *user, void *arg)
 	const UserRemoved* message = (const UserRemoved*)arg;
 	size_t total_len = sizeof(Header) + ntohs(message->header.len);
 
-	/*char uuser[4] = "user";		
-	if (memcmp(user->name, uuser, 4) == 0)
-	{
-		return;
-	}*/
 
 	ssize_t sent = send(user->sock, message, total_len, MSG_NOSIGNAL);
 	if(sent != (ssize_t)total_len)
 	{
-		errnoPrint("Fehler beim senden der URM Message");
+		//errnoPrint("Fehler beim senden der URM Message");
+		return;
 	}
 }
 

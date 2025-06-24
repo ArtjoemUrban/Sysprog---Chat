@@ -12,14 +12,13 @@
 #include "user.h" // benötigt zum erstellen eines Users
 
 static int serverSocket = -1;
-static volatile int exitFlag = 0; 
+static volatile int exitFlag = 0; // Flag, um den Server zu beenden
 
 void closeServerSocket(void)
 {
 	close(serverSocket);
 	infoPrint("Server socket closed.");
 	exitFlag = 1; 
-	
 }
 
 int createPassiveSocket(in_port_t port)
@@ -62,8 +61,7 @@ int createPassiveSocket(in_port_t port)
 		errnoPrint("Could not mark socket to be accepting conections");
 		return -1;
 	}
-
-	return fd;
+	return fd; // gibt den Socket zurück, der jetzt passiv ist und auf Verbindungen wartet
 }
 
 void *connectionHandler(void *arg)
@@ -72,7 +70,7 @@ void *connectionHandler(void *arg)
     serverSocket = fd; // Speichert den Socket in der globalen Variable
 
     while (exitFlag == 0) {
-        struct sockaddr_in client_addr;
+        struct sockaddr_in client_addr; // Struktur für die Client-Adresse
         socklen_t client_len = sizeof(client_addr);
 
         int* client_fd = malloc(sizeof(int));
@@ -100,7 +98,6 @@ void *connectionHandler(void *arg)
             continue;
         }
     }
-
     close(fd);
     return NULL;
 }

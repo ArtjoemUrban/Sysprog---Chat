@@ -25,14 +25,18 @@ static void *broadcastAgent(void *arg)
 	Server2Client msg;
 	while(isRunning) // solange der Thread läuft
 	{
-		infoPrint("Warte auf Nachricht in der MessageQueue");
+		debugPrint("Warte auf Nachricht in der MessageQueue");
 		ssize_t recv = mq_receive(messageQueue, (char*)&msg, sizeof(Server2Client), NULL);
 		if(recv >= 0)
 		{
 			 
-			infoPrint("MessageQueue hat nachricht erhalten.");
+			debugPrint("MessageQueue hat nachricht erhalten.");
 			sem_wait(&pauseResumeSemaphore); // warten bis der Thread fortgesetzt wird
+
+			pthread_mutex_lock(&userLock); // Sperre für die User-Liste
 			iterate_users(sendS2C, &msg);
+			pthread_mutex_unlock(&userLock); // Sperre wieder freigeben
+			
 			sem_post(&pauseResumeSemaphore); // fortsetzen
 		}else{
 			errnoPrint("MessageQueue konnte nachricht nicht empfangen: ");
@@ -45,7 +49,7 @@ int broadcastAgentInit(void)
 {
 	if(isInitialized) // falls der Agent bereits initialisiert wurde
 	{
-		infoPrint("Broadcast agent is already initialized.");
+		errorPrint("Broadcast agent is already initialized.");
 		return 0;
 	}
 	if(sem_init(&pauseResumeSemaphore,0,1) != 0) // 0: wird nicht von Prozessen geteilt,  1: ist start wert
@@ -84,15 +88,13 @@ int broadcastAgentInit(void)
 
 void broadcastAgentCleanup(void)
 {
-	isRunning = false; // Thread beenden
+	isRunning = false; 
 	sem_post(&pauseResumeSemaphore); // falls der Thread auf eine Nachricht wartet
-	pthread_cancel(threadId); // Thread beenden
+	pthread_cancel(threadId); 
 	pthread_join(threadId,NULL);
 	
 	mq_close(messageQueue);
-	mq_unlink(BROADCAST_QUEUE_NAME); // von oben
-
-
+	mq_unlink(BROADCAST_QUEUE_NAME);
 
 	sem_destroy(&pauseResumeSemaphore);
 	infoPrint("Broadcast agent cleanup completed.");
@@ -101,9 +103,7 @@ void broadcastAgentCleanup(void)
 void broadcastAgentPause(void)
 {
 	infoPrint("Chat wird Pausiert.");
-	sem_wait(&pauseResumeSemaphore); // versuche Semaphore zu nehmen, falls nicht möglich, ist der Agent bereits pausiert
-	
-	
+	sem_wait(&pauseResumeSemaphore);
 }
 void broadcastAgentResume(void)
 {

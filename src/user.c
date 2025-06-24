@@ -2,11 +2,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "user.h"
 #include "clientthread.h"
 #include "util.h"
 
-static pthread_mutex_t userLock = PTHREAD_MUTEX_INITIALIZER; // Initialisiert den Mutex für die User-Liste
+pthread_mutex_t userLock = PTHREAD_MUTEX_INITIALIZER; // Initialisiert den Mutex für die User-Liste
 static User *userFront = NULL;
 static User *userBack = NULL;
 
@@ -31,22 +32,20 @@ User *add_user(int sock)
         newUser->prev = userBack;
         userBack = newUser;
     }
-    pthread_mutex_unlock(&userLock); // Gibt die liste wieder frei
+    // pthread_mutex_unlock(&userLock); // Gibt die liste wieder frei
 
     if (pthread_create(&newUser->thread, NULL, clientthread, newUser) != 0) {
         errnoPrint("failed to create user-thread");
         remove_user(newUser);
         return NULL;
     }
-
-    infoPrint("Neuer Benutzer + Thread erstellt und LRQ wird verarbeitet");
     return newUser;
 }
 
 void remove_user(User *user)
 {
-    if(!user) return;
-    pthread_mutex_lock(&userLock);
+    if(!user) return; 
+    
     if (user->prev) user->prev->next = user->next;
     else userFront = user->next;
 
@@ -57,59 +56,83 @@ void remove_user(User *user)
         userBack = NULL;
     pthread_mutex_unlock(&userLock);
     
-    
-    
-    pthread_cancel(user->thread); // beendet den Thread
-    pthread_join(user->thread, NULL); // wartet auf Thread-Beendigung
+    debugPrint("User removed %s", user->name);
     memset(user->name, 0, sizeof(user->name));
     close(user->sock); // schließt socket
+    //pthread_cancel(user->thread); // beendet den Thread
+    //pthread_join(user->thread, NULL); // wartet auf Thread-Beendigung
+   
     free(user);
-    infoPrint("User removed");
+    
 }
 
 void iterate_users(void (*callback)(User *, void *), void *arg)
 {
-    pthread_mutex_lock(&userLock);
+    //pthread_mutex_lock(&userLock);
     User *current = userFront;
     while (current) 
     {
         User *next = current->next;
-        callback(current, arg);
+        if (fcntl(current->sock, F_GETFD) != -1) {
+            callback(current, arg);
+        }
         current = next;
     }
-    pthread_mutex_unlock(&userLock);
+    //pthread_mutex_unlock(&userLock);
 }
 
 User *isNameTaken(const char* newName)
 {
-    pthread_mutex_lock(&userLock);
+    //pthread_mutex_lock(&userLock);
     User *current = userFront;
     while(current)
     {
         if(strncmp(current->name, newName,31) == 0)
         {
-            pthread_mutex_unlock(&userLock);
+            //pthread_mutex_unlock(&userLock);
             return current; // Name gefunden
         }
         current = current->next;
     }
-    pthread_mutex_unlock(&userLock);
+    //pthread_mutex_unlock(&userLock);
     return false;
 }
 
-bool kickUser(const char *username)
+int kickUser(const char *username)
 {
+    pthread_mutex_lock(&userLock);
     User * user = isNameTaken(username);
     if (user) {
+        if (user->isAdmin) {
+            errorPrint("Kicking an admin user is not allowed: %s", username);
+            pthread_mutex_unlock(&userLock);
+            return 3; // Admin kann nicht gekickt werden
+        }
+        // User gefunden, entferne ihn aus der Liste 
+        if (user->prev) user->prev->next = user->next;
+            else userFront = user->next;
+
+        if (user->next) user->next->prev = user->prev;
+            else userBack = user->prev;
+
+        if(userFront == NULL)
+            userBack = NULL;
+        pthread_mutex_unlock(&userLock); // gibt die liste wieder frei
         // Sende eine Nachricht an den User, dass er gekickt wurde
-        //sendS2CError(user->sock, "Du wurdest vom Server gekickt.");
-        
-        remove_user(user); // Entfernt den User aus der Liste
+        //------------------------------------------------
+        pthread_cancel(user->thread); // beendet den Thread
+        pthread_join(user->thread, NULL); // wartet auf Thread-Beendigung
+        memset(user->name, 0, sizeof(user->name));
+        close(user->sock); // schließt socket
+        free(user);
         infoPrint("User %s wurde gekickt", username);
-        return true;
+        //--------------------------------------------------
+        
+        return 1;
     } else {
         errorPrint("User %s nicht gefunden", username);
-        return false;
+        pthread_mutex_unlock(&userLock);
+        return 2;
     }
 }
 
@@ -117,7 +140,7 @@ bool kickUser(const char *username)
 // nicht SignalHandler-sicher
 void destroyUserList(void)
 {
-    pthread_mutex_lock(&userLock);
+    //pthread_mutex_lock(&userLock);
     User *current = userFront;
     while (current) 
     {
@@ -129,7 +152,7 @@ void destroyUserList(void)
         current = next;
     }
     userFront = userBack = NULL;
-    pthread_mutex_unlock(&userLock);
+    //pthread_mutex_unlock(&userLock);
     pthread_mutex_destroy(&userLock); // Mutex zerstören
     infoPrint("User list destroyed");
 }

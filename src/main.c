@@ -46,7 +46,7 @@ void *signalProcessingThread(void *arg)
 
 int main(int argc, char **argv)
 {
-    //debugEnable(); // Debugging aktivieren
+   // debugEnable(); 
     int port = DEFAULT_PORT;
     utilInit(argv[0]);
     infoPrint("Chat server, group 12"); 
@@ -60,9 +60,9 @@ int main(int argc, char **argv)
         // Überprüfe, ob die Konvertierung erfolgreich war und ob der Port im gültigen Bereich liegt
         if( errno != 0 || *endptr != '\0' || parsedPort < 1024 || parsedPort > 65535) {
             errorPrint("Invalid port number: %s. Must be a number between 1024 and 65535", argv[1]);
-            return EXIT_FAILURE; // Beende das Programm bei ungültigem Port
+            return EXIT_FAILURE;
         } else {
-            port = (int)parsedPort; // Konvertiere den gültigen Port in int
+            port = (int)parsedPort;
             infoPrint("Using port: %d", port);
         } 
     }else {
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
     
     infoPrint(" 'Admin' is the default admin user");
 
-    // Signal handler registrieren ---------------------------------------------
+    // Signal handler registrieren
     sigset_t set;
     pthread_t signalThread;
 
@@ -92,14 +92,14 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    // Socket erstellen
     int serverSocket = createPassiveSocket(port);
     if (serverSocket == -1) {
         errnoPrint("Failed to create server socket");
         return EXIT_FAILURE;
     }
-// ---------------------------------------------------------------------------
-
     
+    // Broadcast-Agent initialisieren
     const int broadcast = broadcastAgentInit();
     if (broadcast != 0) {
         errorPrint("Broadcast agent initialization failed");
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
     pthread_join(connectionThread, NULL);
 
     infoPrint("Shutting down server...");
-    //debugDisable(); // Debugging deaktivieren
+    //debugDisable(); 
 
     return EXIT_SUCCESS;
 }

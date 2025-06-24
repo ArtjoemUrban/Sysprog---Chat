@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+extern pthread_mutex_t userLock; // Mutex für die User-Liste
+//extern bedutet, dass die Variable in einer anderen Datei definiert ist
+
 
 typedef struct User
 {
@@ -17,12 +20,6 @@ typedef struct User
 	
 } User;
 
-//TODO: Add prototypes for functions that fulfill the following tasks:
-// * Add a new user to the list and start client thread
-// * Iterate over the complete list (to send messages to all users)
-// * Remove a user from the list
-//CAUTION: You will need proper locking!
-
 
 // Fügt einen neuen Benutzer zur Liste hinzu und startet dessen Client-Thread
 User *add_user(int sock);
@@ -35,7 +32,8 @@ void iterate_users(void (*callback)(User *user, void *arg), void *arg);
 
 // Prüfe ob Username bereits vorhanden
 User *isNameTaken(const char* newName);
-bool kickUser(const char *username);
+
+int kickUser(const char *username);
 
 void destroyUserList(void);
 

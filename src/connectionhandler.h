@@ -1,8 +1,18 @@
 #ifndef CONNECTIONHANDLER_H
 #define CONNECTIONHANDLER_H
 
-#include <netinet/in.h>
+#include <netinet/in.h> // in_port_t
 
-int connectionHandler(in_port_t port);
+/* 
+-Erstellt einen Passiven Socket.
+-Es wird für akzeptierte Verbindungen ein Socket erstellt
+-Für jede verbindung wird ein Thread gestartet
+*/
+// Gibt den Socket zurück, der auf Verbindungen wartet
+int createPassiveSocket(in_port_t port);
+// nimmt aktiven socket entgegen
+void *connectionHandler(void *arg);
+
+void closeServerSocket(void);
 
 #endif
